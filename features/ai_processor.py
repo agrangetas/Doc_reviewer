@@ -113,6 +113,15 @@ class AIProcessor:
             "Préserve la structure exacte du texte (sauts de ligne, espaces, etc.)."
         )
         
+        # Gestion spécifique pour les traductions
+        is_translation = "traduis" in instruction.lower() or "translate" in instruction.lower()
+        if is_translation:
+            system_content += (
+                "\n⚠️ IMPORTANT pour les traductions : "
+                "Si le texte est DÉJÀ dans la langue cible demandée, retourne-le TEL QUEL sans modification. "
+                "Ne traduis que si le texte est dans une autre langue."
+            )
+        
         if is_correction and language:
             system_content += f"\nLe document est en {language}. Effectue la correction dans cette langue."
         

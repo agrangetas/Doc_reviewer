@@ -1,180 +1,110 @@
-# 📄 Document Reviewer - Architecture Modulaire
+# 📄 Document Reviewer
 
-Outil de révision automatique de documents **Word** et **PowerPoint** avec IA (OpenAI) et uniformisation des styles.
+Outil de révision automatique de documents **Word** et **PowerPoint** avec intelligence artificielle (OpenAI).
 
 **Formats supportés** : `.docx`, `.doc`, `.pptx`, `.ppt`
 
-## 🚀 Démarrage Rapide
+---
 
-### 1. Installation
+## 🚀 Installation
 
+### 1. Installer les dépendances
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configuration
+### 2. Configurer l'API OpenAI
 
-Créez un fichier `.env` :
-
+Créez un fichier `.env` à la racine :
 ```env
-OPENAI_API_KEY=sk-votre-cle-api
+OPENAI_API_KEY=sk-votre-cle-api-openai
 OPENAI_MODEL=gpt-4o
 ```
 
-### 3. Utilisation
-
-**Point d'entrée unifié (recommandé)** :
+### 3. Lancer l'application
 ```bash
 python main_review.py
 ```
 
-**Ou spécifique à Word** :
+---
+
+## 📝 Utilisation
+
 ```bash
-python doc_reviewer.py
-```
+$ python main_review.py
 
-```
-➤ Chemin du document: mon_document.docx  # ou .pptx
+➤ Chemin du document (Word/PowerPoint): mon_document.docx
+
+✓ Document chargé
+  Nombre de paragraphes: 127
+  Langue détectée: Français
+
 ➤ Votre commande: corrige
-➤ Votre commande: uniformise
-➤ Votre commande: save
 ```
 
 ---
 
-## ✨ Fonctionnalités
+## ✨ Commandes Disponibles
 
-### 🔍 Correction Orthographique
-- Détection automatique de la langue
-- Correction orthographe et grammaire
-- Préservation du formatage (bold, italic, etc.)
-- Protection des images
-
-### 🌐 Traduction
-- Traduction paragraphe par paragraphe
-- Maintien du contexte
-- Préservation du formatage
-
-### ✨ Amélioration
-- Amélioration du style et de la clarté
-- Conservation du sens original
-
-### 🎨 Uniformisation des Styles
-- Uniformise **police**, **tailles**, **couleurs** et **interlignes** automatiquement
-- **Couleurs par niveau de titre** : cohérence entre titres de même niveau
-- **Interlignes** : uniformise les paragraphes de texte (pas les titres)
-- **Préserve les emphases intentionnelles** (bold/italic sur 1 mot)
-- Détecte et traite les **titres** séparément (non modifiés en taille)
-- Enregistre les actions dans les **logs**
-- Configurable via `style_config.yaml`
-
-**Note** : *L'uniformisation des puces est en développement (détection implémentée).*
-
-### 🎯 Traitement Ciblé avec IA (NOUVEAU !) 🌟
-- **Langage naturel** : Décrivez simplement ce que vous voulez modifier
-- **LLM Parser** 🧠 : Comprend automatiquement votre intention (pages, slides, paragraphes, première/dernière, etc.)
-- **VRAIES pages Word** 📄 : Utilise l'API Word (si disponible) pour obtenir les VRAIES pages (100% précis) !
-  - Avec `pywin32` : Pages réelles via Word API
-  - Sans : Estimation intelligente ajustable
-- **Positions relatives** : Supports "première page", "dernière slide", etc.
-- **Identification intelligente** : Le LLM identifie automatiquement les éléments
-- **Confiance mesurée** : Confirmation demandée si l'identification est incertaine
-- **⚡ Optimisation massive** : Économie de 90-97% des coûts API !
-
-**Exemples Word :**
-```
-• "sur la page 3, reformule le paragraphe en gras"
-• "première page corrige l'orthographe"
-• "dernière page améliore le style"
-• "paragraphe 5 traduis en anglais"
-• "le paragraphe qui parle de budget, améliore le"
-```
-
-**Exemples PowerPoint :**
-```
-• "sur la slide 3, traduis le titre en chinois"
-• "première slide corrige"
-• "dernière slide améliore la conclusion"
-• "slide 7 le texte en bas à droite, corrige le"
-• "la slide avec le graphique, améliore la légende"
-```
-
-Le système :
-1. Analyse votre description en langage naturel
-2. Extrait la structure du document
-3. Utilise l'IA pour identifier précisément l'élément
-4. Affiche ce qui a été identifié (confiance %)
-5. Traite uniquement l'élément ciblé
-
-Voir `TARGETED_PROCESSING.md` pour plus de détails.
-
----
-
-## 📋 Commandes Disponibles
+### 🔧 Modifications Globales
 
 | Commande | Description |
 |----------|-------------|
 | `corrige` | Corrige l'orthographe et la grammaire |
-| `traduis [langue]` | Traduit le document |
+| `traduis [langue]` | Traduit le document (ex: `traduis anglais`) |
 | `améliore` | Améliore le style et la clarté |
-| `uniformise` | Uniformise les styles du document |
+| `uniformise` | Uniformise les styles (police, tailles, couleurs) |
+
+### 🎯 Modifications Ciblées (langage naturel)
+
+Décrivez simplement ce que vous voulez modifier :
+
+**Word :**
+- `"sur la page 3, reformule le paragraphe en gras"`
+- `"première page corrige l'orthographe"`
+- `"le paragraphe qui parle de budget, améliore le"`
+
+**PowerPoint :**
+- `"sur la slide 3, traduis le titre en chinois"`
+- `"première slide corrige"`
+- `"slide 7 le texte en bas à droite, améliore le"`
+
+### 💾 Gestion
+
+| Commande | Description |
+|----------|-------------|
 | `save` | Sauvegarde le document modifié |
+| `change_doc` | Change de document |
+| `help` | Affiche l'aide |
 | `quit` | Quitte l'application |
 
 ---
 
-## 🎯 Exemple d'Utilisation
+## 🎨 Fonctionnalités
 
-```bash
-$ python doc_reviewer.py
+### ✅ Préservation du Format
+- **Styles de texte** : bold, italic, underline, couleurs
+- **Alignements** : paragraphes, bullet points, indentations
+- **Images** : protection automatique (Word)
+- **Structure** : préserve la mise en page
 
-➤ Chemin du document: rapport.docx
+### 🧠 Intelligence Artificielle
+- **Détection de langue** : automatique
+- **Ciblage intelligent** : compréhension du langage naturel
+- **Traduction intelligente** : ne traduit pas si déjà dans la bonne langue
+- **Contexte** : maintient la cohérence du document
 
-✓ Document chargé: rapport.docx
-  Nombre de paragraphes: 127
-  Modèle OpenAI: gpt-4o
-  Langue détectée: Français
-  Images trouvées: 3 image(s) dans 2 paragraphe(s)
-
-➤ Votre commande: corrige
-
-🔄 Traitement: Corrige...
-Paragraphe 1/127... ✓ Modifié
-Paragraphe 2/127... ○ Inchangé
-...
-✓ Traitement terminé ! (45 paragraphes modifiés)
-✅ TOUTES LES IMAGES SONT PRÉSERVÉES !
-
-➤ Votre commande: uniformise
-
-UNIFORMISATION DES STYLES
-==========================
-Analyse du document:
-  Police majoritaire: Calibri (87.3%)
-  Taille texte majoritaire: 11pt
-
-Appliquer ces modifications ? (o/n): o
-
-✓ Uniformisation terminée !
-  Paragraphes modifiés: 82
-  Emphases préservées: 12
-
-➤ Votre commande: save
-💾 Document sauvegardé: rapport_modifié.docx
-```
+### 📊 Logs Détaillés
+Toutes les modifications sont enregistrées dans `LOGS/nom_document_YYYYMMDD.txt` :
+- Texte avant/après
+- Différences détaillées
+- Horodatage
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuration Avancée
 
-### `.env` - Configuration de l'API
-
-```env
-OPENAI_API_KEY=sk-xxxxx        # Obligatoire
-OPENAI_MODEL=gpt-4o            # Optionnel (défaut: gpt-4o)
-```
-
-### `style_config.yaml` - Configuration des Styles
+### Style (`style_config.yaml`)
 
 ```yaml
 font:
@@ -182,135 +112,67 @@ font:
 
 sizes:
   text_normal: auto            # 'auto' ou 11, 12, etc.
-  heading_1: auto
 
 preserve:
   intentional_emphasis: true   # Préserver bold/italic sur 1 mot
-  quotes: true                 # Préserver les citations
-
-heading_detection:
-  use_word_styles: true        # Utiliser les styles Word
-  use_heuristics: true         # Détection par taille/bold
-
-application:
-  ask_confirmation: true       # Demander confirmation
 ```
 
----
+### Pages Word (`.env`)
 
-## 📊 Logs
-
-Toutes les modifications sont enregistrées dans `LOGS/nom_document_YYYYMMDD.txt`
-
-Contenu des logs :
-- Avant/après pour chaque modification
-- Différences détaillées pour les corrections
-- Horodatage de chaque changement
-- Statistiques de traitement
-
----
-
-## 🛡️ Protection des Données
-
-### Images
-- Détection automatique des images
-- Backup XML avant modification
-- Restauration si images perdues
-- Vérification post-traitement
-
-### Formatage
-- Extraction précise des styles (bold, italic, underline, etc.)
-- Mapping intelligent avec `difflib`
-- Préservation des emphases intentionnelles
-- Conservation des propriétés de paragraphe
-
----
-
-## 📊 Support PowerPoint
-
-Le support PowerPoint est **maintenant opérationnel** ! 
-
-### Fonctionnalités disponibles pour PowerPoint :
-- ✅ Correction orthographique et grammaticale
-- ✅ Traduction
-- ✅ Instructions personnalisées (amélioration, simplification, etc.)
-- ✅ Conservation du formatage (bold, italic, couleur, taille, etc.)
-- ✅ Détection automatique de la langue
-- ✅ Logging détaillé des modifications
-- ✅ Uniformisation de base (police et taille)
-- ⚠️ Uniformisation avancée (couleurs, interlignes) - prochainement
-
-### Utilisation :
+Pour obtenir les **vraies pages** sur Word (nécessite Windows + Word installé) :
 ```bash
-python main_review.py
-➤ Chemin du document (Word/PowerPoint): ma_presentation.pptx
+pip install pywin32
 ```
 
-Le système détecte automatiquement le format et utilise le processeur approprié.
+Sinon, le système utilise une estimation intelligente (ajustable via `CHARS_PER_PAGE` dans `.env`).
 
 ---
 
-## 🏗️ Architecture Modulaire
+## 🆘 Aide
 
-Le projet est organisé en modules :
-- **`core/base/`** : Classe abstraite pour les processeurs
-- **`core/word/`** : Processeur Word (.docx, .doc)
-- **`core/powerpoint/`** : Processeur PowerPoint (.pptx, .ppt)
-- **`features/`** : IA, détection de langue, uniformisation
-- **`change_logging/`** : Logging des modifications
-- **`utils/`** : Configuration (.env, YAML)
+### L'API ne répond pas
+Vérifiez votre clé dans `.env` :
+```env
+OPENAI_API_KEY=sk-votre-cle
+```
+
+### Le formatage n'est pas préservé
+Le système préserve automatiquement les styles. Si vous rencontrez un problème, vérifiez les logs.
+
+### Les pages Word sont mal estimées
+1. **Windows + Word installé** : Installez `pywin32` pour utiliser l'API Word
+2. **Sans Word** : Ajustez `CHARS_PER_PAGE` dans `.env` (voir `calibrate_pages.py`)
+
+---
+
+## 📂 Structure du Projet
+
+```
+Doc_review/
+├── main_review.py           # Point d'entrée principal
+├── .env                      # Configuration (à créer)
+├── style_config.yaml         # Configuration des styles
+│
+├── core/                     # Processeurs de documents
+│   ├── word/                 # Traitement Word
+│   └── powerpoint/           # Traitement PowerPoint
+│
+├── features/                 # Fonctionnalités IA
+│   ├── ai_processor.py       # Intégration OpenAI
+│   ├── language_detector.py  # Détection de langue
+│   └── style_uniformizer.py  # Uniformisation
+│
+└── LOGS/                     # Historique des modifications
+```
 
 Voir `ARCHITECTURE.md` pour plus de détails.
 
 ---
 
-## 🔧 Dépendances
-
-- `python-docx==1.1.2` - Manipulation de documents Word
-- `python-pptx==0.6.23` - Manipulation de présentations PowerPoint
-- `openai==1.12.0` - API OpenAI
-- `python-dotenv==1.0.1` - Gestion variables d'environnement
-- `httpx==0.27.0` - Client HTTP
-- `langdetect==1.0.9` - Détection de langue
-- `PyYAML==6.0` - Configuration YAML
-
----
-
-## 🆘 Dépannage
-
-### Erreur : Module 'yaml' not found
-```bash
-pip install PyYAML==6.0.1
-```
-
-### Erreur : API Key not found
-Vérifiez votre fichier `.env` :
-```env
-OPENAI_API_KEY=sk-votre-cle
-```
-
-### Images disparues
-Le système protège automatiquement les images avec backup/restore.
-Si un paragraphe contient des images, il sera restauré si les images sont perdues.
-
----
-
-## 🎓 Avantages
-
-✅ **Architecture modulaire** - Code clair et maintenable  
-✅ **Protection des images** - Backup/restore automatique  
-✅ **Mapping intelligent** - Préservation précise du formatage  
-✅ **Logs détaillés** - Traçabilité complète  
-✅ **Uniformisation intelligente** - Préserve les emphases intentionnelles  
-✅ **Configuration flexible** - .env + YAML  
-
----
-
-## 📝 Licence
+## 📄 Licence
 
 MIT
 
 ---
 
-**Document Reviewer - Version Modulaire**
-
+**Document Reviewer** - Révision intelligente de documents

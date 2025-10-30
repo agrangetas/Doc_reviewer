@@ -77,6 +77,7 @@ class PowerPointProcessor(DocumentProcessor):
     def _preserve_shape_format(self, shape, new_text: str) -> None:
         """
         Préserve le formatage d'un shape PowerPoint en appliquant le nouveau texte.
+        Utilise le système de mapping de styles comme pour Word.
         
         Args:
             shape: Shape PowerPoint
@@ -86,57 +87,177 @@ class PowerPointProcessor(DocumentProcessor):
             shape.text = new_text
             return
         
-        # Extraire le formatage des runs existants
-        original_runs = []
-        for para in shape.text_frame.paragraphs:
-            for run in para.runs:
-                if run.text:
-                    original_runs.append({
-                        'text': run.text,
-                        'bold': run.font.bold,
-                        'italic': run.font.italic,
-                        'underline': run.font.underline,
-                        'font_name': run.font.name,
-                        'font_size': run.font.size,
-                        'font_color': run.font.color.rgb if run.font.color.type == 1 else None
-                    })
+        text_frame = shape.text_frame
         
-        # Si un seul style uniforme, l'appliquer à tout
-        if len(original_runs) > 0:
-            first_style = original_runs[0]
-            all_same = all(
-                r['bold'] == first_style['bold'] and
-                r['italic'] == first_style['italic'] and
-                r['underline'] == first_style['underline']
-                for r in original_runs
-            )
+        # Sauvegarder les propriétés des paragraphes (alignement, bullet points, etc.)
+        paragraph_formats = []
+        for para in text_frame.paragraphs:
+            para_format = {
+                'alignment': para.alignment,
+                'level': para.level,
+                'line_spacing': para.line_spacing,
+                'space_before': para.space_before,
+                'space_after': para.space_after,
+            }
+            # Bullet points
+            if hasattr(para, 'font') and para.font:
+                para_format['bullet_font'] = {
+                    'name': para.font.name,
+                    'size': para.font.size,
+                    'bold': para.font.bold,
+                }
+            paragraph_formats.append(para_format)
+        
+        # Extraire le texte original complet
+        original_text = shape.text
+        
+        # Extraire les styles avec le système existant (adapté pour PPT)
+        styles_map = self._extract_ppt_styles_map(text_frame)
+        
+        # Mapper les styles vers le nouveau texte
+        new_styles_map = self.style_mapper.map_styles_to_new_text(
+            original_text, new_text, styles_map
+        )
+        
+        # Appliquer le nouveau texte avec les styles mappés
+        self._apply_ppt_styles_map(text_frame, new_text, new_styles_map, paragraph_formats)
+    
+    def _extract_ppt_styles_map(self, text_frame):
+        """
+        Extrait la map des styles d'un text_frame PowerPoint.
+        Similaire à StyleExtractor mais adapté pour PPT.
+        
+        Args:
+            text_frame: TextFrame PowerPoint
             
-            if all_same:
-                # Style uniforme: appliquer à tout le nouveau texte
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
+        Returns:
+            Liste de dicts avec positions et styles
+        """
+        styles_map = []
+        current_position = 0
+        
+        for para in text_frame.paragraphs:
+            for run in para.runs:
+                if not run.text:
+                    continue
+                
+                run_length = len(run.text)
+                
+                styles_map.append({
+                    'start': current_position,
+                    'end': current_position + run_length,
+                    'bold': run.font.bold,
+                    'italic': run.font.italic,
+                    'underline': run.font.underline,
+                    'font_name': run.font.name,
+                    'font_size': run.font.size,
+                    'font_color': run.font.color.rgb if hasattr(run.font.color, 'rgb') and run.font.color.type == 1 else None
+                })
+                
+                current_position += run_length
+        
+        return styles_map
+    
+    def _apply_ppt_styles_map(self, text_frame, new_text: str, styles_map: list, paragraph_formats: list):
+        """
+        Applique une map de styles à un text_frame PowerPoint.
+        
+        Args:
+            text_frame: TextFrame PowerPoint
+            new_text: Nouveau texte
+            styles_map: Map des styles
+            paragraph_formats: Formats des paragraphes (alignement, bullets, etc.)
+        """
+        # Nettoyer le text_frame
+        text_frame.clear()
+        
+        # Si pas de styles, juste ajouter le texte avec le format du premier paragraphe
+        if not styles_map:
+            p = text_frame.paragraphs[0]
+            p.text = new_text
+            if paragraph_formats:
+                self._apply_paragraph_format(p, paragraph_formats[0])
+            return
+        
+        # Créer un paragraphe et ajouter les runs avec styles
+        p = text_frame.paragraphs[0]
+        
+        # Appliquer le format du premier paragraphe (alignement, bullets)
+        if paragraph_formats:
+            self._apply_paragraph_format(p, paragraph_formats[0])
+        
+        # Trier les styles par position
+        sorted_styles = sorted(styles_map, key=lambda x: x['start'])
+        
+        # Créer des runs pour chaque section de style
+        last_end = 0
+        
+        for style in sorted_styles:
+            start = max(style['start'], last_end)
+            end = min(style['end'], len(new_text))
+            
+            if start >= len(new_text):
+                break
+            
+            # Texte avant ce style (si gap)
+            if start > last_end:
+                gap_text = new_text[last_end:start]
+                if gap_text:
+                    p.add_run().text = gap_text
+            
+            # Texte avec ce style
+            if end > start:
+                styled_text = new_text[start:end]
                 run = p.add_run()
-                run.text = new_text
+                run.text = styled_text
                 
                 # Appliquer le style
-                if first_style['bold']:
-                    run.font.bold = True
-                if first_style['italic']:
-                    run.font.italic = True
-                if first_style['underline']:
-                    run.font.underline = True
-                if first_style['font_name']:
-                    run.font.name = first_style['font_name']
-                if first_style['font_size']:
-                    run.font.size = first_style['font_size']
-                if first_style['font_color']:
-                    run.font.color.rgb = first_style['font_color']
-            else:
-                # Style mixte: juste remplacer le texte (simplifié)
-                shape.text = new_text
-        else:
-            # Pas de runs: simple remplacement
-            shape.text = new_text
+                if style['bold'] is not None:
+                    run.font.bold = style['bold']
+                if style['italic'] is not None:
+                    run.font.italic = style['italic']
+                if style['underline'] is not None:
+                    run.font.underline = style['underline']
+                if style['font_name']:
+                    run.font.name = style['font_name']
+                if style['font_size']:
+                    run.font.size = style['font_size']
+                if style['font_color']:
+                    try:
+                        run.font.color.rgb = style['font_color']
+                    except:
+                        pass
+                
+                last_end = end
+        
+        # Texte restant après tous les styles
+        if last_end < len(new_text):
+            remaining_text = new_text[last_end:]
+            if remaining_text:
+                p.add_run().text = remaining_text
+    
+    def _apply_paragraph_format(self, paragraph, para_format: dict):
+        """
+        Applique le formatage de paragraphe (alignement, bullets, etc.).
+        
+        Args:
+            paragraph: Paragraphe PowerPoint
+            para_format: Dict avec les formats à appliquer
+        """
+        try:
+            if para_format.get('alignment') is not None:
+                paragraph.alignment = para_format['alignment']
+            if para_format.get('level') is not None:
+                paragraph.level = para_format['level']
+            if para_format.get('line_spacing') is not None:
+                paragraph.line_spacing = para_format['line_spacing']
+            if para_format.get('space_before') is not None:
+                paragraph.space_before = para_format['space_before']
+            if para_format.get('space_after') is not None:
+                paragraph.space_after = para_format['space_after']
+        except Exception as e:
+            # Certains formats peuvent ne pas être applicables
+            pass
     
     def _calculate_structure(self):
         """

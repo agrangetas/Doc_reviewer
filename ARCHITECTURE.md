@@ -1,266 +1,269 @@
-# 🏗️ Architecture - Document Reviewer
+# 🏗️ Architecture du Projet
 
-## 📊 Structure Actuelle
+## 📁 Structure des Dossiers
 
 ```
 Doc_review/
-├── main_review.py              ⭐ Point d'entrée UNIFIÉ (Word + PowerPoint)
-├── doc_reviewer.py              # Point d'entrée Word (conservé pour compatibilité)
+├── main_review.py              # 🚀 Point d'entrée principal
+├── doc_reviewer.py              # (Ancienne version, conservée)
 │
-├── core/
-│   ├── base/                    # 🆕 Abstractions communes
-│   │   └── document_processor.py  # Interface abstraite
+├── .env                         # 🔑 Configuration API
+├── style_config.yaml            # 🎨 Configuration des styles
+├── requirements.txt             # 📦 Dépendances Python
+│
+├── core/                        # 💼 Traitement des documents
+│   ├── base/                    # Classe abstraite commune
+│   │   ├── document_processor.py
+│   │   └── document_context.py
 │   │
-│   ├── word/                    # 🔄 Implémentation Word (à migrer)
-│   │   └── __init__.py
+│   ├── word/                    # 📄 Traitement Word
+│   │   └── word_processor.py
 │   │
-│   ├── powerpoint/              # 🆕 Implémentation PowerPoint (en dev)
-│   │   ├── __init__.py
-│   │   └── ppt_processor.py     # Stub avec notes d'implémentation
+│   ├── powerpoint/              # 🎬 Traitement PowerPoint
+│   │   └── ppt_processor.py
 │   │
-│   ├── image_handler.py         # Gestion images (Word actuellement)
-│   ├── style_extractor.py       # ✅ Compatible Word & PowerPoint
-│   └── style_mapper.py          # ✅ Compatible Word & PowerPoint
+│   ├── image_handler.py         # 🖼️ Gestion des images
+│   ├── style_extractor.py       # 🔍 Extraction des styles
+│   └── style_mapper.py          # 🗺️ Mapping des styles
 │
-├── features/                    # ✅ Modules format-agnostiques
-│   ├── ai_processor.py          # Traitement IA (100% réutilisable)
-│   ├── language_detector.py     # Détection langue (100% réutilisable)
-│   └── style_uniformizer.py     # Uniformisation (à adapter légèrement)
+├── features/                    # ✨ Fonctionnalités IA
+│   ├── ai_processor.py          # 🤖 Intégration OpenAI
+│   ├── language_detector.py     # 🌐 Détection de langue
+│   ├── style_uniformizer.py     # 🎨 Uniformisation
+│   ├── element_resolver.py      # 🎯 Identification ciblée
+│   └── input_parser.py          # 📝 Parsing des commandes
 │
-├── change_logging/              # ✅ Logging (100% réutilisable)
-│   ├── logger.py
-│   └── diff_analyzer.py
+├── change_logging/              # 📊 Historique des modifications
+│   ├── logger.py                # Enregistrement des logs
+│   └── diff_analyzer.py         # Analyse des différences
 │
-└── utils/                       # ✅ Utilitaires (100% réutilisable)
-    └── config.py
+├── utils/                       # 🛠️ Utilitaires
+│   └── config.py                # Gestion configuration
+│
+└── LOGS/                        # 📂 Fichiers de logs
 ```
 
 ---
 
-## 🎯 Fonctionnement du Point d'Entrée Unifié
+## 🔄 Flux d'Exécution
 
-### `main_review.py`
+### 1. Démarrage (`main_review.py`)
 
 ```python
-# 1. Détection automatique du format
-extension = fichier.suffix  # .docx → Word, .pptx → PowerPoint
-
-# 2. Routage vers le bon processeur
-if extension in ['.docx', '.doc']:
-    processor = DocumentReviewer()  # Word
-elif extension in ['.pptx', '.ppt']:
-    processor = PowerPointProcessor()  # PowerPoint
-
-# 3. Interface commune
-processor.load_document(fichier)
-processor.process_document(instruction)
-processor.uniformize_styles()
-processor.save_document()
-```
-
-**Avantages** :
-- ✅ Une seule commande pour tous les formats
-- ✅ Détection automatique
-- ✅ Interface identique
-- ✅ Extensible (PDF, Excel...)
-
----
-
-## 📦 Compatibilité des Modules
-
-### Modules 100% Réutilisables (60%)
-
-| Module | Word | PowerPoint | Notes |
-|--------|------|------------|-------|
-| `ai_processor.py` | ✅ | ✅ | Traite du texte brut |
-| `language_detector.py` | ✅ | ✅ | Analyse du texte |
-| `diff_analyzer.py` | ✅ | ✅ | Comparaison de textes |
-| `config.py` | ✅ | ✅ | Configuration générique |
-| `style_extractor.py` | ✅ | ✅ | Les `runs` sont identiques ! |
-| `style_mapper.py` | ✅ | ✅ | Les `runs` sont identiques ! |
-
-### Modules à Adapter (40%)
-
-| Module | Status | Action Requise |
-|--------|--------|----------------|
-| `image_handler.py` | ⚠️ | Adapter pour shapes PPT |
-| `style_uniformizer.py` | ⚠️ | Itération slides/shapes |
-| `logger.py` | ⚠️ | "slide" au lieu de "paragraphe" |
-
----
-
-## 🔄 Migration Progressive
-
-### Phase 1 : ✅ TERMINÉ
-- ✅ Structure de base créée
-- ✅ Point d'entrée unifié (`main_review.py`)
-- ✅ Abstraction `DocumentProcessor`
-- ✅ Stub PowerPoint avec notes
-- ✅ Requirements mis à jour
-
-### Phase 2 : 🔄 EN COURS
-- 🔄 Migration Word vers `core/word/`
-- ⏳ Tests du point d'entrée unifié
-
-### Phase 3 : ⏳ À VENIR
-- ⏳ Implémentation PowerPoint complète
-- ⏳ Adaptation `image_handler` pour PPT
-- ⏳ Adaptation `style_uniformizer` pour PPT
-- ⏳ Tests sur vrais fichiers `.pptx`
-
----
-
-## 🎓 Détails Techniques
-
-### Similarités Word ↔ PowerPoint
-
-**Structure des runs (identique !) :**
-```python
-# Word
-for paragraph in document.paragraphs:
-    for run in paragraph.runs:
-        run.font.name
-        run.font.size
-        run.bold
-
-# PowerPoint - EXACTEMENT PAREIL !
-for slide in presentation.slides:
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for paragraph in shape.text_frame.paragraphs:
-                for run in paragraph.runs:  # ← Identique !
-                    run.font.name
-                    run.font.size
-                    run.bold
-```
-
-**Donc :**
-- ✅ `StyleExtractor` fonctionne tel quel
-- ✅ `StyleMapper` fonctionne tel quel
-- ✅ `AIProcessor` fonctionne tel quel
-
-### Différences à Gérer
-
-**1. Navigation**
-```python
-# Word : 2 niveaux
-document.paragraphs → runs
-
-# PowerPoint : 4 niveaux
-presentation.slides → shapes → text_frames → paragraphs → runs
-```
-
-**2. Détection de Titres**
-```python
-# Word : via styles
-paragraph.style.name.startswith('Heading')
-
-# PowerPoint : via layouts
-shape.placeholder_format.type == 1  # TITLE
-```
-
-**3. Images**
-```python
-# Word : dans les runs
-run._element (XML)
-
-# PowerPoint : shapes dédiés
-shape.image
-```
-
----
-
-## 🚀 Utilisation
-
-### Commande Unique (Recommandée)
-
-```bash
+# L'utilisateur lance l'application
 python main_review.py
 
-# Supporte automatiquement :
-➤ Chemin: rapport.docx    # → Word
-➤ Chemin: slides.pptx     # → PowerPoint (bientôt)
+# Le système :
+# 1. Charge la configuration (.env)
+# 2. Demande le chemin du document
+# 3. Détecte le format (Word ou PowerPoint)
+# 4. Charge le processeur approprié
 ```
 
-### Commandes Spécifiques
+### 2. Chargement du Document
 
-```bash
-# Word uniquement
-python doc_reviewer.py
+```python
+# Word
+WordProcessor.load_document()
+  → Charge le .docx avec python-docx
+  → Détecte la langue
+  → Compte les images
+  → Calcule les pages (une seule fois)
 
-# PowerPoint (quand disponible)
-python ppt_reviewer.py  # À créer si besoin
+# PowerPoint
+PowerPointProcessor.load_document()
+  → Charge le .pptx avec python-pptx
+  → Détecte la langue
+  → Analyse la structure des slides
+```
+
+### 3. Traitement d'une Commande
+
+#### A. Commande Globale (ex: `corrige`)
+
+```python
+processor.process_document(instruction)
+  ↓
+  Pour chaque paragraphe/shape :
+    1. Extraire le texte
+    2. Extraire les styles (bold, italic, etc.)
+    3. Envoyer à l'IA
+    4. Recevoir le texte modifié
+    5. Mapper les styles sur le nouveau texte
+    6. Appliquer avec préservation du format
+    7. Vérifier les images (Word)
+    8. Logger les changements
+```
+
+#### B. Commande Ciblée (ex: `"page 3, corrige le titre"`)
+
+```python
+1. InputParser : Parse la commande avec LLM
+   → Identifie : page=3, target="titre", action="corrige"
+
+2. DocumentContext : Extrait la structure du document
+   → Utilise le cache des pages (Word)
+   → Filtre pour ne garder que la page 3 et voisines
+
+3. ElementResolver : Identifie l'élément précis avec LLM
+   → Envoie la structure filtrée au LLM
+   → Reçoit : paragraphe_num=15, confiance=95%
+
+4. Processor : Traite UNIQUEMENT cet élément
+   → process_targeted(target, instruction)
+   → Même logique que global mais pour 1 élément
+```
+
+### 4. Sauvegarde
+
+```python
+processor.save_document()
+  → Sauvegarde avec suffix "_modifié"
+  → Préserve le format original
 ```
 
 ---
 
-## 📝 Notes pour le Développement PowerPoint
+## 🧩 Modules Clés
 
-### Déjà Préparé
+### `core/base/document_processor.py`
+**Rôle** : Interface abstraite commune à Word et PowerPoint
 
-**Fichier `core/powerpoint/ppt_processor.py`** contient :
-- ✅ Structure de classe complète
-- ✅ Notes d'implémentation détaillées
-- ✅ Exemples de code commentés
-- ✅ Liste des compatibilités
+**Méthodes** :
+- `load_document()` : Charge le fichier
+- `save_document()` : Sauvegarde
+- `process_document()` : Traitement global
+- `process_targeted()` : Traitement ciblé
+- `uniformize_styles()` : Uniformisation
 
-### À Implémenter (~10h)
+### `features/ai_processor.py`
+**Rôle** : Communication avec l'API OpenAI
 
-1. **Chargement** (2h)
-   ```python
-   from pptx import Presentation
-   self.presentation = Presentation(file_path)
-   ```
+**Fonctionnalités** :
+- Envoi de texte à corriger/traduire/améliorer
+- Gestion du contexte de conversation
+- Détection des traductions inutiles
+- Validation des instructions
 
-2. **Itération** (3h)
-   ```python
-   for slide in self.presentation.slides:
-       for shape in slide.shapes:
-           if shape.has_text_frame:
-               # Traiter comme Word !
-   ```
+### `core/style_mapper.py`
+**Rôle** : Préservation intelligente du formatage
 
-3. **Images** (2h)
-   - Adapter `ImageHandler`
-   - Gérer `shape.image`
+**Fonctionnement** :
+1. Extrait tous les styles du texte original (positions + propriétés)
+2. Utilise `difflib` pour trouver les correspondances avec le nouveau texte
+3. Mappe les styles sur les positions correspondantes
+4. Gère les styles uniformes (tout en gras) et mixtes
 
-4. **Tests** (3h)
-   - Vrais fichiers `.pptx`
-   - Validation résultats
+### `change_logging/logger.py`
+**Rôle** : Traçabilité des modifications
 
----
-
-## ✅ Checklist Complète
-
-### Infrastructure
-- ✅ Structure `core/base/`
-- ✅ Structure `core/word/`
-- ✅ Structure `core/powerpoint/`
-- ✅ Point d'entrée unifié
-- ✅ Détection automatique de format
-- ✅ `python-pptx` dans requirements
-
-### Word (Actuel)
-- ✅ Pleinement fonctionnel
-- ✅ Compatible avec nouvelle architecture
-- ✅ Accessible via `main_review.py`
-
-### PowerPoint (Futur)
-- ✅ Structure préparée
-- ✅ Notes d'implémentation
-- ⏳ Implémentation à finaliser
-- ⏳ Tests à effectuer
+**Contenu des logs** :
+- Horodatage
+- Paragraphe/Shape modifié
+- Texte avant
+- Texte après
+- Instruction appliquée
+- Type (global/ciblé)
 
 ---
 
-## 🎉 Conclusion
+## 🎯 Différences Word vs PowerPoint
 
-**Architecture prête pour l'extension PowerPoint !**
+### Navigation dans le Document
 
-- ✅ **Point d'entrée unifié** créé
-- ✅ **60% du code réutilisable** tel quel
-- ✅ **Structure propre** et extensible
-- ⏳ **~10h de dev** pour PowerPoint complet
+**Word** :
+```python
+document.paragraphs
+  → paragraph.runs
+    → run.text, run.font
+```
 
-**Prochaine étape** : Implémenter `ppt_processor.py` quand prêt !
+**PowerPoint** :
+```python
+presentation.slides
+  → slide.shapes (avec texte)
+    → shape.text_frame.paragraphs
+      → paragraph.runs
+        → run.text, run.font  # ← Identique à Word !
+```
 
+### Préservation du Format
+
+**Commun** (via `StyleMapper`) :
+- Bold, italic, underline
+- Font name, size
+- Color
+
+**Spécifique Word** :
+- Images dans les runs (backup XML)
+- Styles de paragraphe
+
+**Spécifique PowerPoint** :
+- Alignement des text_frames
+- Bullet points et indentations
+- Niveaux de paragraphes
+
+---
+
+## 🔧 Points d'Extension
+
+### Ajouter un Nouveau Format (ex: PDF)
+
+1. Créer `core/pdf/pdf_processor.py` héritant de `DocumentProcessor`
+2. Implémenter les méthodes abstraites
+3. Ajouter la détection dans `main_review.py` :
+```python
+elif extension == '.pdf':
+    processor = PDFProcessor(...)
+```
+
+### Ajouter une Nouvelle Commande
+
+Dans `main_review.py` :
+```python
+elif user_input.lower() == 'ma_commande':
+    processor.process_document("Mon instruction")
+```
+
+### Ajouter une Fonctionnalité IA
+
+1. Créer un module dans `features/`
+2. Utiliser `AIProcessor` pour communiquer avec l'API
+3. Intégrer dans les processeurs
+
+---
+
+## 💡 Principes de Design
+
+### 1. **Séparation des Responsabilités**
+- `core/` : Manipulation des documents
+- `features/` : Intelligence artificielle
+- `change_logging/` : Traçabilité
+- `utils/` : Configuration
+
+### 2. **Abstraction**
+- `DocumentProcessor` définit l'interface
+- Word et PowerPoint l'implémentent à leur façon
+- Le code appelant ne voit que l'interface
+
+### 3. **Réutilisabilité**
+- `AIProcessor`, `StyleMapper`, `LanguageDetector` : agnostiques du format
+- Utilisables pour Word, PowerPoint, et futurs formats
+
+### 4. **Performance**
+- Calcul des pages : **une seule fois** au chargement (cache)
+- Extraction ciblée : ne charge que les sections pertinentes
+- Économie d'API : 90-97% sur les commandes ciblées
+
+---
+
+## 📚 Pour Aller Plus Loin
+
+- **Détails sur le ciblage** : `TARGETED_PROCESSING.md`
+- **Guide PowerPoint** : `GUIDE_POWERPOINT.md`
+- **Calibration pages** : `calibrate_pages.py` + guide
+- **Configuration** : `style_config.yaml` + `.env`
+
+---
+
+**Architecture Modulaire** - Extensible et Maintenable
