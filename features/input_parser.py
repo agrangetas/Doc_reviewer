@@ -39,6 +39,20 @@ class InputParser:
     
     PARSING_PROMPT = """Tu es un assistant qui parse des instructions utilisateur pour un outil de révision de documents.
 
+⚠️ DISTINCTION CRITIQUE ⚠️
+L'utilisateur va décrire :
+1. **OÙ** modifier (page, slide, paragraphe) → "scope"
+2. **QUEL ÉLÉMENT** précisément (visuel/sémantique) → "target_description"
+3. **QUELLE ACTION** effectuer → "instruction"
+
+EXEMPLE CRUCIAL :
+"Sur la page 3, reformule le paragraphe en gras sur les ambitions"
+→ "en gras" = DESCRIPTION VISUELLE du paragraphe (target_description)
+→ "reformule" = ACTION à faire (instruction)
+→ NE PAS confondre avec "reformule en gras" !
+
+---
+
 L'utilisateur peut mentionner différents types de cibles :
 - **Pages** : "page 3", "sur la page 5", "première page", "dernière page"
 - **Slides** (PowerPoint) : "slide 3", "diapo 5", "première slide"
@@ -61,23 +75,28 @@ Parse l'instruction et retourne UNIQUEMENT un JSON (sans texte, sans markdown) :
   "paragraph_number": <numéro ou null>,
   "section_name": "<nom ou null>",
   "relative_position": "<first|last|null>",
-  "target_description": "<description de l'élément à cibler ou null>",
-  "instruction": "<action à effectuer>",
+  "target_description": "<DESCRIPTION VISUELLE/SÉMANTIQUE de l'élément (pas l'action!)>",
+  "instruction": "<ACTION PURE sans description visuelle>",
   "confidence": <0.0-1.0>
 }}
 
-RÈGLES :
+RÈGLES IMPÉRATIVES :
 1. Si "page X" → scope_type="page", page_number=X
 2. Si "slide X" → scope_type="slide", slide_number=X
 3. Si "paragraphe X" → scope_type="paragraphe", paragraph_number=X
 4. Si "première/dernière" → utilise relative_position="first"/"last"
-5. Si description ("le texte en gras", "le titre") → target_description
-6. Instruction = l'action pure ("traduis", "corrige", etc.)
+5. **target_description** = descriptions visuelles/sémantiques UNIQUEMENT :
+   - "en gras", "en italic", "souligné" = style visuel
+   - "en haut à droite", "en bas" = position
+   - "titre", "introduction", "sur les ambitions" = sémantique
+6. **instruction** = VERBE D'ACTION pur :
+   - "reformule", "traduis", "corrige", "résume", "supprime"
+   - ⚠️ NE JAMAIS inclure les descriptions visuelles ici !
 7. confidence = 1.0 si clair, < 0.8 si ambigu
 
-EXEMPLES :
+EXEMPLES DÉTAILLÉS :
 
-Input: "sur la page 3, reformule le paragraphe en gras"
+Input: "sur la page 3, reformule le paragraphe en gras sur les ambitions du projet"
 Output:
 {{
   "scope_type": "page",
@@ -86,12 +105,12 @@ Output:
   "paragraph_number": null,
   "section_name": null,
   "relative_position": null,
-  "target_description": "paragraphe en gras",
+  "target_description": "paragraphe en gras sur les ambitions du projet",
   "instruction": "reformule",
   "confidence": 1.0
 }}
 
-Input: "slide 7 traduis le titre"
+Input: "slide 7 traduis le titre en rouge"
 Output:
 {{
   "scope_type": "slide",
@@ -100,8 +119,22 @@ Output:
   "paragraph_number": null,
   "section_name": null,
   "relative_position": null,
-  "target_description": "titre",
+  "target_description": "titre en rouge",
   "instruction": "traduis",
+  "confidence": 1.0
+}}
+
+Input: "page 2, corrige le texte en bas à droite"
+Output:
+{{
+  "scope_type": "page",
+  "page_number": 2,
+  "slide_number": null,
+  "paragraph_number": null,
+  "section_name": null,
+  "relative_position": null,
+  "target_description": "texte en bas à droite",
+  "instruction": "corrige",
   "confidence": 1.0
 }}
 

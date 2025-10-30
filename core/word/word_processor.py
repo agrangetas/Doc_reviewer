@@ -23,6 +23,7 @@ class WordProcessor(DocumentProcessor):
         )
         self.initial_image_count = 0
         self.paragraphs_with_images = []
+        self.cached_page_info = None  # Cache pour les numéros de page
     
     def load_document(self, file_path: str) -> None:
         """
@@ -48,6 +49,10 @@ class WordProcessor(DocumentProcessor):
         # Compter les images
         self.initial_image_count, self.paragraphs_with_images = self.image_handler.count_images(self.current_document)
         
+        # Calculer les pages UNE SEULE FOIS au chargement
+        print("📄 Calcul des pages du document...")
+        self.cached_page_info = self._calculate_page_numbers(file_path)
+        
         # Afficher les infos
         print(f"✓ Document chargé: {path.name}")
         print(f"  Nombre de paragraphes: {len(self.current_document.paragraphs)}")
@@ -66,6 +71,54 @@ class WordProcessor(DocumentProcessor):
         if self.initial_image_count > 0:
             print(f"  Images trouvées: {self.initial_image_count} image(s) dans {len(self.paragraphs_with_images)} paragraphe(s)")
             print(f"  ⚠️  Les paragraphes avec images seront traités avec précaution")
+    
+    def _calculate_page_numbers(self, file_path: str):
+        """
+        Calcule les numéros de pages du document (une seule fois).
+        Utilise win32com si disponible, sinon fait une estimation.
+        
+        Returns:
+            Tuple (paragraph_pages dict, total_pages int) ou None si échec
+        """
+        from core.base.document_context import DocumentContext
+        
+        # Essayer d'utiliser win32com (vraies pages)
+        try:
+            import os
+            abs_path = os.path.abspath(file_path)
+            real_pages = DocumentContext._get_real_page_numbers_via_word(abs_path)
+            
+            if real_pages:
+                paragraph_pages, total_pages = real_pages
+                print(f"   ✓ Pages RÉELLES détectées via Word API: {total_pages} pages")
+                return real_pages
+        except Exception as e:
+            print(f"   ⚠️  Word API non disponible: {e}")
+        
+        # Fallback: estimation
+        import os
+        chars_per_page = int(os.getenv('CHARS_PER_PAGE', '1500'))
+        
+        paragraph_pages = {}
+        cumulative_chars = 0
+        current_page = 1
+        
+        for i, para in enumerate(self.current_document.paragraphs, 1):
+            text = para.text.strip()
+            para_weight = len(text)
+            
+            # Titres prennent plus de place
+            if para.style and para.style.name and ('Heading' in para.style.name or 'Titre' in para.style.name):
+                para_weight = int(para_weight * 1.5)
+            
+            cumulative_chars += para_weight
+            current_page = max(1, (cumulative_chars // chars_per_page) + 1)
+            paragraph_pages[i] = current_page
+        
+        total_pages = current_page
+        print(f"   ✓ Pages ESTIMÉES: ~{total_pages} pages (~{chars_per_page} chars/page)")
+        
+        return paragraph_pages, total_pages
     
     def save_document(self, output_path: Optional[str] = None) -> None:
         """

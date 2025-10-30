@@ -88,40 +88,47 @@ class DocumentContext:
             return None
     
     @staticmethod
-    def extract_for_word(document, parsed_input=None, file_path=None) -> Dict[str, Any]:
+    def extract_for_word(document, parsed_input=None, file_path=None, cached_page_info=None) -> Dict[str, Any]:
         """
         Extrait la structure d'un document Word avec détection de pages.
         
         Args:
             document: Document Word (python-docx)
             parsed_input: ParsedInput optionnel pour ciblage
-            file_path: Chemin du fichier (pour API Word)
+            file_path: Chemin du fichier (pour API Word) - ignoré si cached_page_info fourni
+            cached_page_info: Tuple (paragraph_pages, total_pages) précalculé pour éviter recalculs
             
         Returns:
             Structure JSON du document
         """
         paragraphs = []
         
-        # Tenter d'obtenir les VRAIES pages via Word API
-        real_pages_result = None
-        if file_path:
-            import os
-            abs_path = os.path.abspath(file_path)
-            real_pages_result = DocumentContext._get_real_page_numbers_via_word(abs_path)
-        
-        # Si on a les vraies pages, les utiliser
-        if real_pages_result:
-            paragraph_pages, total_pages = real_pages_result
-            print(f"   📄 Utilisation des VRAIES pages ({total_pages} pages détectées)")
+        # Utiliser le cache si fourni (plus performant - calcul unique au chargement)
+        if cached_page_info:
+            paragraph_pages, total_pages = cached_page_info
+            print(f"   📄 Utilisation des pages en CACHE ({total_pages} pages)")
         else:
-            # Fallback : estimation
-            print("   ⚠️  Fallback sur estimation (python-docx limitation)")
+            # Fallback : calculer maintenant (ancien comportement, moins optimal)
+            # Tenter d'obtenir les VRAIES pages via Word API
+            real_pages_result = None
+            if file_path:
+                import os
+                abs_path = os.path.abspath(file_path)
+                real_pages_result = DocumentContext._get_real_page_numbers_via_word(abs_path)
             
-            # Estimation ajustable selon le type de document
-            import os
-            chars_per_page = int(os.getenv('CHARS_PER_PAGE', '1500'))
-            cumulative_chars = 0
-            current_page = 1
+            # Si on a les vraies pages, les utiliser
+            if real_pages_result:
+                paragraph_pages, total_pages = real_pages_result
+                print(f"   📄 Utilisation des VRAIES pages ({total_pages} pages détectées)")
+            else:
+                # Fallback : estimation
+                print("   ⚠️  Fallback sur estimation (python-docx limitation)")
+                
+                # Estimation ajustable selon le type de document
+                import os
+                chars_per_page = int(os.getenv('CHARS_PER_PAGE', '1500'))
+                cumulative_chars = 0
+                current_page = 1
         
         # Parser le scope si fourni via ParsedInput
         target_page = None
@@ -147,8 +154,8 @@ class DocumentContext:
                     target_para = parsed_input.paragraph_number
                 print(f"   🎯 Extraction ciblée: Paragraphe {target_para}")
         
-        # Si on n'a pas les vraies pages, calculer l'estimation
-        if not real_pages_result:
+        # Si on n'a pas de pages (ni cache, ni vraies pages), calculer l'estimation
+        if not cached_page_info and (not file_path or not paragraph_pages):
             paragraph_pages = {}
             cumulative_chars = 0
             current_page = 1

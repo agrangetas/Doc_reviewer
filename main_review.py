@@ -118,6 +118,7 @@ def interactive_mode(processor, file_path: str, format_name: str, format_type: s
     print("  - 'uniformise' : Uniformise les styles (police, tailles, couleurs, etc.)")
     print("  - ou toute autre instruction personnalisée")
     print("  - 'save' : Sauvegarder")
+    print("  - 'change_doc' : Changer de document")
     print("  - 'help' : Afficher l'aide")
     print("  - 'quit' : Quitter")
     print("=" * 60)
@@ -136,6 +137,10 @@ def interactive_mode(processor, file_path: str, format_name: str, format_type: s
             if user_input.lower() == 'save':
                 processor.save_document()
                 continue
+            
+            if user_input.lower() == 'change_doc':
+                print("\n🔄 Changement de document...")
+                return True  # Signal pour retourner au menu principal
             
             if user_input.lower() == 'uniformise':
                 processor.uniformize_styles()
@@ -161,6 +166,7 @@ def interactive_mode(processor, file_path: str, format_name: str, format_type: s
                 print("  uniformise           - Uniformise les styles (police, tailles, couleurs, interligne)")
                 print("\n💾 Gestion du document:")
                 print("  save                 - Sauvegarde le document modifié")
+                print("  change_doc           - Change de document (retour au menu)")
                 print("  quit                 - Quitte l'application")
                 print("  help                 - Affiche cette aide")
                 print("\n💡 Le système utilise l'IA pour identifier automatiquement")
@@ -229,7 +235,7 @@ def interactive_mode(processor, file_path: str, format_name: str, format_type: s
                     doc_context = DocumentContext.extract_for_word(
                         processor.current_document, 
                         parsed_input,
-                        file_path  # Passer le chemin pour API Word
+                        cached_page_info=processor.cached_page_info  # Utiliser le cache du processeur
                     )
                     print(f"   ✓ {doc_context['paragraphs_shown']} paragraphes extraits")
                     if 'total_pages' in doc_context:
@@ -332,13 +338,13 @@ def interactive_mode(processor, file_path: str, format_name: str, format_type: s
 
 
 def main():
-    """Fonction principale."""
+    """Fonction principale avec boucle pour changement de document."""
     print("=" * 60)
     print("DOCUMENT REVIEWER - Point d'Entrée Unifié")
     print("Supporte : Word (.docx, .doc) • PowerPoint (.pptx, .ppt)")
     print("=" * 60)
     
-    # Vérifier la clé API
+    # Vérifier la clé API une seule fois
     config = Config()
     api_key = config.get_api_key()
     
@@ -349,35 +355,44 @@ def main():
     
     print("✓ Clé API OpenAI chargée depuis l'environnement")
     
-    # Demander le fichier
-    file_path = input("\n➤ Chemin du document (Word/PowerPoint): ").strip().strip('"')
-    
-    if not file_path:
-        print("❌ Aucun fichier spécifié.")
-        return
-    
-    try:
-        # Détecter le format
-        format_type = detect_format(file_path)
-        format_names = {'word': 'Word', 'powerpoint': 'PowerPoint'}
-        format_name = format_names.get(format_type, format_type)
-        
-        print(f"\n📄 Format détecté : {format_name}")
-        
-        # Obtenir le processeur approprié
-        processor = get_processor(format_type)
-        
-        # Lancer le mode interactif
-        interactive_mode(processor, file_path, format_name, format_type)
-        
-    except ValueError as e:
-        print(f"\n❌ {e}")
-    except NotImplementedError as e:
-        print(f"\n⚠️  {e}")
-    except Exception as e:
-        print(f"\n❌ Erreur: {e}")
-        import traceback
-        traceback.print_exc()
+    # Boucle principale pour permettre le changement de document
+    while True:
+        try:
+            # Demander le fichier
+            file_path = input("\n➤ Chemin du document (Word/PowerPoint): ").strip().strip('"')
+            
+            if not file_path:
+                print("❌ Aucun fichier spécifié.")
+                continue
+            
+            # Détecter le format
+            format_type = detect_format(file_path)
+            format_names = {'word': 'Word', 'powerpoint': 'PowerPoint'}
+            format_name = format_names.get(format_type, format_type)
+            
+            print(f"\n📄 Format détecté : {format_name}")
+            
+            # Obtenir le processeur approprié
+            processor = get_processor(format_type)
+            
+            # Lancer le mode interactif
+            should_change_doc = interactive_mode(processor, file_path, format_name, format_type)
+            
+            # Si l'utilisateur a demandé à changer de document, continuer la boucle
+            if should_change_doc:
+                continue
+            else:
+                # Sinon (quit), sortir de la boucle
+                break
+                
+        except ValueError as e:
+            print(f"\n❌ {e}")
+        except NotImplementedError as e:
+            print(f"\n⚠️  {e}")
+        except Exception as e:
+            print(f"\n❌ Erreur: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
