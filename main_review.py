@@ -144,67 +144,140 @@ def interactive_mode(processor, file_path: str, format_name: str):
                 print("\n" + "=" * 60)
                 print("COMMANDES DISPONIBLES")
                 print("=" * 60)
-                print("\n📝 Modification du contenu:")
+                print("\n📝 Modification du contenu (GLOBAL):")
                 print("  corrige              - Corrige l'orthographe et la grammaire")
                 print("  traduis [langue]     - Traduit le document (ex: traduis anglais)")
                 print("  améliore             - Améliore le style et la clarté")
-                print("  [instruction libre]  - Toute instruction personnalisée")
+                print("\n🎯 Modification CIBLÉE (en langage naturel):")
+                print("  Exemples Word:")
+                print("    • 'sur le paragraphe 5, traduis en anglais'")
+                print("    • 'le paragraphe qui parle de budget, améliore le'")
+                print("  Exemples PowerPoint:")
+                print("    • 'sur la slide 3, traduis le titre en chinois'")
+                print("    • 'sur la slide 3, le texte en bas à droite, corrige le'")
+                print("    • 'la slide avec le graphique, améliore la légende'")
                 print("\n🎨 Mise en forme:")
                 print("  uniformise           - Uniformise les styles (police, tailles, couleurs, interligne)")
                 print("\n💾 Gestion du document:")
                 print("  save                 - Sauvegarde le document modifié")
                 print("  quit                 - Quitte l'application")
                 print("  help                 - Affiche cette aide")
+                print("\n💡 Le système utilise l'IA pour identifier automatiquement")
+                print("   les éléments à modifier depuis vos descriptions !")
                 print("\n" + "=" * 60)
                 continue
             
             # Traiter l'instruction
+            # D'abord, essayer de détecter si c'est une commande standard ou ciblée
+            is_standard_command = False
+            instruction = user_input
+            
             if user_input.lower().startswith('corrige'):
                 instruction = "Corrige toutes les fautes d'orthographe et de grammaire dans ce texte."
+                is_standard_command = True
             elif user_input.lower().startswith('traduis'):
                 langue = user_input.split(maxsplit=1)[1] if ' ' in user_input else "anglais"
                 instruction = f"Traduis ce texte en {langue}."
+                is_standard_command = True
             elif user_input.lower() == 'améliore':
                 instruction = "Améliore le style et la clarté de ce texte."
+                is_standard_command = True
+            
+            # Si commande standard, traiter globalement
+            if is_standard_command:
+                processor.process_document(instruction)
             else:
-                # Instruction personnalisée : valider d'abord
-                instruction = user_input
-                print("\n🔍 Validation de l'instruction...")
-                is_valid, reason, reformulation = processor.ai_processor.validate_instruction(instruction)
+                # Instruction personnalisée ou ciblée : utiliser la résolution LLM
+                print("\n🔍 Analyse de l'instruction...")
                 
-                if not is_valid:
-                    # Cas 1 : Reformulation proposée
-                    if reason == "reformulation_proposée" and reformulation:
-                        print(f"\n⚠️  Votre instruction contient des éléments impossibles (formatage).")
-                        print(f"\n💡 Reformulation proposée :")
-                        print(f"   '{reformulation}'")
-                        print(f"\n   (Le LLM peut modifier le TEXTE mais pas le formatage comme gras/italic/police)")
-                        
-                        confirmation = input("\n   Accepter cette reformulation ? (o/n): ").strip().lower()
-                        if confirmation == 'o':
-                            instruction = reformulation
-                            print("✅ Reformulation acceptée !")
-                        else:
-                            print("❌ Annulé. Veuillez entrer une nouvelle instruction.")
-                            continue
+                # Extraire le contexte du document
+                from core.base.document_context import DocumentContext
+                from features.element_resolver import ElementResolver
+                
+                if format_type == 'word':
+                    doc_context = DocumentContext.extract_for_word(processor.current_document)
+                else:  # powerpoint
+                    doc_context = DocumentContext.extract_for_powerpoint(processor.presentation)
+                
+                # Résoudre la cible avec le LLM
+                resolver = ElementResolver(processor.ai_processor)
+                target = resolver.resolve(user_input, doc_context)
+                
+                # Afficher ce qui a été identifié
+                target_desc = ElementResolver.format_target_description(target, doc_context['type'])
+                print(f"✓ Cible identifiée: {target_desc}")
+                print(f"  Instruction: {target.instruction}")
+                print(f"  Confiance: {target.confidence:.0%}")
+                
+                # Si confiance basse, demander confirmation
+                if not target.is_confident():
+                    print(f"\n⚠️  Confiance faible ({target.confidence:.0%})")
+                    if target.ambiguity:
+                        print(f"   Raison: {target.ambiguity}")
                     
-                    # Cas 2 : Instruction totalement invalide
-                    else:
-                        print(f"\n❌ Instruction invalide : {reason}")
-                        print("\n💡 Rappel :")
-                        print("  - L'instruction doit s'appliquer à TOUT le document")
-                        print("  - Le LLM peut modifier le TEXTE (contenu, majuscules, ton, style)")
-                        print("  - Le LLM ne peut PAS modifier le formatage (gras, police, couleur)")
-                        print("\n  Exemples valides :")
-                        print("    • 'rends le texte plus professionnel'")
-                        print("    • 'met tout en MAJUSCULES'")
-                        print("    • 'simplifie le vocabulaire'")
-                        print("\nVeuillez reformuler votre instruction.")
+                    print(f"\n📋 Structure identifiée complète:")
+                    if format_type == 'word' and target.paragraph:
+                        # Afficher le paragraphe identifié
+                        para = processor.current_document.paragraphs[target.paragraph - 1]
+                        print(f"   Paragraphe {target.paragraph}: {para.text[:150]}...")
+                    elif format_type == 'powerpoint' and target.slide:
+                        # Afficher la slide/shape identifiée
+                        slide = processor.presentation.slides[target.slide - 1]
+                        if target.shape is not None:
+                            shape = slide.shapes[target.shape]
+                            if shape.has_text_frame:
+                                text = shape.text[:150]
+                                print(f"   Slide {target.slide}, Shape {target.shape}: {text}...")
+                        else:
+                            print(f"   Slide {target.slide} (toute la slide)")
+                    
+                    confirmation = input("\n   Continuer avec cette cible ? (o/n): ").strip().lower()
+                    if confirmation != 'o':
+                        print("❌ Annulé.")
                         continue
                 
-                print("✅ Instruction validée !")
-            
-            processor.process_document(instruction)
+                # Traiter selon le scope
+                if target.scope == "global":
+                    # Valider l'instruction globale comme avant
+                    print("\n🔍 Validation de l'instruction globale...")
+                    is_valid, reason, reformulation = processor.ai_processor.validate_instruction(target.instruction)
+                    
+                    if not is_valid:
+                        # Cas 1 : Reformulation proposée
+                        if reason == "reformulation_proposée" and reformulation:
+                            print(f"\n⚠️  Votre instruction contient des éléments impossibles (formatage).")
+                            print(f"\n💡 Reformulation proposée :")
+                            print(f"   '{reformulation}'")
+                            print(f"\n   (Le LLM peut modifier le TEXTE mais pas le formatage comme gras/italic/police)")
+                            
+                            confirmation = input("\n   Accepter cette reformulation ? (o/n): ").strip().lower()
+                            if confirmation == 'o':
+                                target.instruction = reformulation
+                                print("✅ Reformulation acceptée !")
+                            else:
+                                print("❌ Annulé. Veuillez entrer une nouvelle instruction.")
+                                continue
+                        
+                        # Cas 2 : Instruction totalement invalide
+                        else:
+                            print(f"\n❌ Instruction invalide : {reason}")
+                            print("\n💡 Rappel :")
+                            print("  - L'instruction doit s'appliquer à TOUT le document")
+                            print("  - Le LLM peut modifier le TEXTE (contenu, majuscules, ton, style)")
+                            print("  - Le LLM ne peut PAS modifier le formatage (gras, police, couleur)")
+                            print("\n  Exemples valides :")
+                            print("    • 'rends le texte plus professionnel'")
+                            print("    • 'met tout en MAJUSCULES'")
+                            print("    • 'simplifie le vocabulaire'")
+                            print("\nVeuillez reformuler votre instruction.")
+                            continue
+                    
+                    print("✅ Instruction validée !")
+                    processor.process_document(target.instruction)
+                
+                else:
+                    # Traitement ciblé
+                    processor.process_targeted(target, target.instruction)
             
         except KeyboardInterrupt:
             print("\n\nInterruption détectée.")

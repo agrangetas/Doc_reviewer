@@ -59,7 +59,7 @@ python doc_reviewer.py
 - Amélioration du style et de la clarté
 - Conservation du sens original
 
-### 🎨 Uniformisation des Styles (Nouveau !)
+### 🎨 Uniformisation des Styles
 - Uniformise **police**, **tailles**, **couleurs** et **interlignes** automatiquement
 - **Couleurs par niveau de titre** : cohérence entre titres de même niveau
 - **Interlignes** : uniformise les paragraphes de texte (pas les titres)
@@ -69,6 +69,35 @@ python doc_reviewer.py
 - Configurable via `style_config.yaml`
 
 **Note** : *L'uniformisation des puces est en développement (détection implémentée).*
+
+### 🎯 Traitement Ciblé avec IA (NOUVEAU !) 🌟
+- **Langage naturel** : Décrivez simplement ce que vous voulez modifier
+- **Identification intelligente** : Le LLM identifie automatiquement les éléments
+- **Confiance mesurée** : Confirmation demandée si l'identification est incertaine
+- **Flexibilité totale** : Pas de syntaxe rigide à apprendre
+
+**Exemples Word :**
+```
+• "sur le paragraphe 5, traduis en anglais"
+• "le paragraphe qui parle de budget, améliore le"
+• "le texte en italique, corrige le"
+```
+
+**Exemples PowerPoint :**
+```
+• "sur la slide 3, traduis le titre en chinois"
+• "sur la slide 3, le texte en bas à droite, corrige le"
+• "la slide avec le graphique, améliore la légende"
+```
+
+Le système :
+1. Analyse votre description en langage naturel
+2. Extrait la structure du document
+3. Utilise l'IA pour identifier précisément l'élément
+4. Affiche ce qui a été identifié (confiance %)
+5. Traite uniquement l'élément ciblé
+
+Voir `TARGETED_PROCESSING.md` pour plus de détails.
 
 ---
 

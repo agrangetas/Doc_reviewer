@@ -195,6 +195,97 @@ class WordProcessor(DocumentProcessor):
             print(f"⚠️  Erreur appliation styles: {e}")
             return False
     
+    def process_targeted(self, target, instruction: str) -> None:
+        """
+        Traite un élément ciblé spécifiquement.
+        
+        Args:
+            target: ResolvedTarget avec le paragraphe ciblé
+            instruction: Instruction à appliquer
+        """
+        if not self.current_document:
+            raise ValueError("Aucun document chargé.")
+        
+        paragraph_num = target.paragraph
+        if not paragraph_num:
+            raise ValueError("Aucun paragraphe ciblé.")
+        
+        # Vérifier que le paragraphe existe
+        if paragraph_num < 1 or paragraph_num > len(self.current_document.paragraphs):
+            raise ValueError(f"Paragraphe {paragraph_num} n'existe pas (document a {len(self.current_document.paragraphs)} paragraphes).")
+        
+        paragraph = self.current_document.paragraphs[paragraph_num - 1]  # Index 0-based
+        
+        if not paragraph.text.strip():
+            print(f"⚠️  Paragraphe {paragraph_num} est vide, ignoré.")
+            return
+        
+        print(f"\n🎯 Traitement ciblé: Paragraphe {paragraph_num}")
+        print(f"   Instruction: {instruction}")
+        print("=" * 60)
+        
+        from features.language_detector import LanguageDetector
+        is_correction = any(word in instruction.lower() for word in ['corrige', 'correction', 'orthographe', 'grammaire'])
+        language_name = LanguageDetector.get_language_name(self.detected_language) if self.detected_language else None
+        
+        # Contexte : paragraphes voisins
+        context_parts = []
+        for i in range(max(0, paragraph_num - 3), paragraph_num - 1):
+            p = self.current_document.paragraphs[i]
+            if p.text.strip():
+                context_parts.append(p.text.strip())
+        context = " [...] ".join(context_parts)
+        
+        # Vérifier images
+        has_images = paragraph_num in self.paragraphs_with_images
+        if has_images:
+            backup = self.image_handler.backup_paragraph(paragraph)
+        
+        try:
+            original_text = paragraph.text
+            print(f"Texte original: {original_text[:100]}{'...' if len(original_text) > 100 else ''}")
+            
+            # Traitement
+            processed_text = self.ai_processor.call_openai(
+                instruction, original_text, context, is_correction, language_name
+            )
+            
+            if processed_text and processed_text != original_text:
+                # Extraire et mapper les styles
+                styles_map = self.style_extractor.extract_styles_map(paragraph)
+                new_styles_map = self.style_mapper.map_styles_to_new_text(
+                    original_text, processed_text, styles_map
+                )
+                
+                # Appliquer
+                modification_applied = self._preserve_paragraph_format(
+                    paragraph, processed_text, new_styles_map
+                )
+                
+                # Vérifier les images
+                if has_images:
+                    images_after = self.image_handler.count_images_in_paragraph(paragraph)
+                    images_before = self.image_handler.count_images_in_paragraph_from_backup(backup)
+                    
+                    if images_after != images_before:
+                        # Restaurer
+                        self.image_handler.restore_paragraph(paragraph, backup)
+                        print("○ Non modifié (images préservées)")
+                        modification_applied = False
+                
+                if modification_applied:
+                    self.logger.log_change(paragraph_num, original_text, processed_text, 
+                                          f"{instruction} (ciblé)")
+                    print(f"✓ Paragraphe {paragraph_num} modifié")
+                    print(f"Nouveau texte: {processed_text[:100]}{'...' if len(processed_text) > 100 else ''}")
+            else:
+                print("○ Aucun changement")
+        
+        except Exception as e:
+            print(f"❌ Erreur: {e}")
+        
+        print("=" * 60)
+    
     def uniformize_styles(self) -> None:
         """Uniformise les styles du document Word."""
         if not self.current_document:

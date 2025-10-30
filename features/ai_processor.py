@@ -144,6 +144,33 @@ class AIProcessor:
             print(f"❌ Erreur API OpenAI: {e}")
             return text
     
+    def _call_openai_raw(self, system_message: str, user_message: str, temperature: float = 0.3) -> str:
+        """
+        Appel brut à l'API OpenAI sans historique ni traitement.
+        
+        Args:
+            system_message: Message système
+            user_message: Message utilisateur
+            temperature: Température du modèle
+            
+        Returns:
+            Réponse brute du LLM
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=temperature,
+            )
+            
+            return response.choices[0].message.content.strip()
+            
+        except Exception as e:
+            raise Exception(f"Erreur API OpenAI: {e}")
+    
     def process_document(self, document, instruction: str, detected_language: Optional[str], 
                         image_handler, style_extractor, style_mapper, logger) -> int:
         """

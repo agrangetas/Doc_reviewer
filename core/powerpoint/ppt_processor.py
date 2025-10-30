@@ -215,6 +215,149 @@ class PowerPointProcessor(DocumentProcessor):
         # Prendre les 2 derniers éléments de contexte
         return " [...] ".join(context_parts[-2:]) if context_parts else ""
     
+    def process_targeted(self, target, instruction: str) -> None:
+        """
+        Traite un élément ciblé spécifiquement dans la présentation.
+        
+        Args:
+            target: ResolvedTarget avec slide/shape/paragraph ciblé
+            instruction: Instruction à appliquer
+        """
+        if not self.presentation:
+            raise ValueError("Aucune présentation chargée.")
+        
+        slide_num = target.slide
+        shape_idx = target.shape
+        
+        if not slide_num:
+            raise ValueError("Aucune slide ciblée.")
+        
+        # Vérifier que la slide existe
+        if slide_num < 1 or slide_num > len(self.presentation.slides):
+            raise ValueError(f"Slide {slide_num} n'existe pas (présentation a {len(self.presentation.slides)} slides).")
+        
+        slide = self.presentation.slides[slide_num - 1]  # Index 0-based
+        
+        print(f"\n🎯 Traitement ciblé: Slide {slide_num}", end="")
+        if shape_idx is not None:
+            print(f", Shape {shape_idx}")
+        else:
+            print()
+        print(f"   Instruction: {instruction}")
+        print("=" * 60)
+        
+        from features.language_detector import LanguageDetector
+        is_correction = any(word in instruction.lower() for word in ['corrige', 'correction', 'orthographe', 'grammaire'])
+        language_name = LanguageDetector.get_language_name(self.detected_language) if self.detected_language else None
+        
+        modified_count = 0
+        
+        # Si shape spécifique
+        if shape_idx is not None:
+            # Vérifier que la shape existe
+            if shape_idx < 0 or shape_idx >= len(slide.shapes):
+                raise ValueError(f"Shape {shape_idx} n'existe pas sur la slide {slide_num} ({len(slide.shapes)} shapes).")
+            
+            shape = slide.shapes[shape_idx]
+            if not shape.has_text_frame:
+                print(f"⚠️  Shape {shape_idx} n'a pas de texte, ignorée.")
+                return
+            
+            # Traiter tous les paragraphes de cette shape
+            for para_idx, paragraph in enumerate(shape.text_frame.paragraphs, 1):
+                if not paragraph.text.strip():
+                    continue
+                
+                # Contexte : paragraphes précédents dans la même shape
+                context = self._get_context_in_shape(shape, para_idx - 1)
+                
+                original_text = paragraph.text
+                processed_text = self.ai_processor.call_openai(
+                    instruction, original_text, context, is_correction, language_name
+                )
+                
+                if processed_text and processed_text != original_text:
+                    # Extraire et mapper les styles
+                    styles_map = self.style_extractor.extract_styles_map(paragraph)
+                    new_styles_map = self.style_mapper.map_styles_to_new_text(
+                        original_text, processed_text, styles_map
+                    )
+                    
+                    # Appliquer
+                    self.style_mapper.apply_styles_map(paragraph, processed_text, new_styles_map)
+                    
+                    # Logger
+                    self.logger.log_change(
+                        f"S{slide_num}-Sh{shape_idx}-P{para_idx}",
+                        original_text,
+                        processed_text,
+                        f"{instruction} (ciblé)"
+                    )
+                    print(f"  ✓ Paragraphe {para_idx} modifié")
+                    modified_count += 1
+        
+        else:
+            # Traiter toutes les shapes de la slide
+            for shape_idx, shape in enumerate(slide.shapes):
+                if not shape.has_text_frame:
+                    continue
+                
+                for para_idx, paragraph in enumerate(shape.text_frame.paragraphs):
+                    if not paragraph.text.strip():
+                        continue
+                    
+                    context = self._get_context_in_shape(shape, para_idx)
+                    
+                    original_text = paragraph.text
+                    processed_text = self.ai_processor.call_openai(
+                        instruction, original_text, context, is_correction, language_name
+                    )
+                    
+                    if processed_text and processed_text != original_text:
+                        # Extraire et mapper les styles
+                        styles_map = self.style_extractor.extract_styles_map(paragraph)
+                        new_styles_map = self.style_mapper.map_styles_to_new_text(
+                            original_text, processed_text, styles_map
+                        )
+                        
+                        # Appliquer
+                        self.style_mapper.apply_styles_map(paragraph, processed_text, new_styles_map)
+                        
+                        # Logger
+                        self.logger.log_change(
+                            f"S{slide_num}-Sh{shape_idx}-P{para_idx+1}",
+                            original_text,
+                            processed_text,
+                            f"{instruction} (ciblé)"
+                        )
+                        modified_count += 1
+        
+        print("=" * 60)
+        print(f"✓ Traitement ciblé terminé ! ({modified_count} éléments modifiés)")
+    
+    def _get_context_in_shape(self, shape, current_para_idx: int) -> str:
+        """
+        Récupère le contexte (paragraphes précédents) dans une shape.
+        
+        Args:
+            shape: Shape PowerPoint
+            current_para_idx: Index du paragraphe actuel
+            
+        Returns:
+            Contexte textuel
+        """
+        if not shape.has_text_frame:
+            return ""
+        
+        context_parts = []
+        for i, para in enumerate(shape.text_frame.paragraphs):
+            if i >= current_para_idx:
+                break
+            if para.text.strip():
+                context_parts.append(para.text.strip())
+        
+        return " [...] ".join(context_parts[-2:]) if context_parts else ""
+    
     def uniformize_styles(self) -> None:
         """
         Uniformise les styles de la présentation.
