@@ -10,6 +10,31 @@ class StyleMapper:
     """Mappeur intelligent de styles entre textes."""
     
     @staticmethod
+    def _has_uniform_style(styles_map: List[Dict]) -> bool:
+        """
+        Vérifie si tous les styles sont identiques.
+        
+        Args:
+            styles_map: Liste des styles
+            
+        Returns:
+            True si tous les styles sont identiques
+        """
+        if not styles_map or len(styles_map) == 1:
+            return True
+        
+        first_style = styles_map[0]
+        for style in styles_map[1:]:
+            if (style['bold'] != first_style['bold'] or
+                style['italic'] != first_style['italic'] or
+                style['underline'] != first_style['underline'] or
+                style['font_name'] != first_style['font_name'] or
+                style['font_size'] != first_style['font_size']):
+                return False
+        
+        return True
+    
+    @staticmethod
     def map_styles_to_new_text(original_text: str, new_text: str, styles_map: List[Dict]) -> List[Dict]:
         """
         Mappe intelligemment les styles de l'ancien texte vers le nouveau en utilisant difflib.
@@ -24,6 +49,21 @@ class StyleMapper:
         """
         if not styles_map:
             return []
+        
+        # Vérifier si tout le texte a le même style (cas fréquent : tout en bold)
+        if len(styles_map) == 1 or StyleMapper._has_uniform_style(styles_map):
+            # Appliquer le style uniforme à tout le nouveau texte
+            uniform_style = styles_map[0]
+            return [{
+                'start': 0,
+                'end': len(new_text),
+                'bold': uniform_style['bold'],
+                'italic': uniform_style['italic'],
+                'underline': uniform_style['underline'],
+                'font_name': uniform_style['font_name'],
+                'font_size': uniform_style['font_size'],
+                'font_color': uniform_style['font_color'],
+            }]
         
         # Utiliser SequenceMatcher pour comprendre les changements
         matcher = difflib.SequenceMatcher(None, original_text, new_text)

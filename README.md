@@ -114,34 +114,6 @@ Appliquer ces modifications ? (o/n): o
 
 ---
 
-## 📁 Architecture
-
-```
-Doc_review/
-├── core/                    # Traitement des documents
-│   ├── image_handler.py     # Gestion et protection des images
-│   ├── style_extractor.py   # Extraction des styles
-│   └── style_mapper.py      # Mapping intelligent des styles
-│
-├── features/                # Fonctionnalités principales
-│   ├── ai_processor.py      # Traitement avec OpenAI
-│   ├── language_detector.py # Détection de langue
-│   └── style_uniformizer.py # Uniformisation des styles
-│
-├── change_logging/          # Système de logging
-│   ├── logger.py            # Logger principal
-│   └── diff_analyzer.py     # Analyse des différences
-│
-├── utils/                   # Utilitaires
-│   └── config.py            # Configuration (.env + YAML)
-│
-├── doc_reviewer.py          # Point d'entrée principal
-├── style_config.yaml        # Configuration uniformisation
-└── requirements.txt         # Dépendances
-```
-
----
-
 ## ⚙️ Configuration
 
 ### `.env` - Configuration de l'API
@@ -203,18 +175,6 @@ Contenu des logs :
 
 ---
 
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| `README.md` | Ce fichier |
-| `LIRE_EN_PREMIER.md` | Guide de démarrage rapide |
-| `GUIDE_UTILISATION_V2.md` | Manuel complet avec exemples |
-| `STATUT_REFACTORING.md` | Détails techniques de l'architecture |
-| `NOUVELLE_ARCHITECTURE.md` | Guide de l'architecture modulaire |
-
----
-
 ## 🔧 Dépendances
 
 - `python-docx==1.1.2` - Manipulation de documents Word
@@ -262,25 +222,5 @@ MIT
 
 ---
 
-## 👨‍💻 Développement
-
-### Tests
-
-```bash
-python -c "from utils.config import Config; from core.image_handler import ImageHandler; print('✅ Tous les modules OK')"
-```
-
-### Structure du Code
-
-Chaque module a une responsabilité unique :
-- `core/` - Traitement bas niveau des documents
-- `features/` - Fonctionnalités métier
-- `change_logging/` - Journalisation
-- `utils/` - Utilitaires transverses
-
----
-
-**Version 2.0 - Architecture Modulaire**
-
-Pour plus de détails, consultez `GUIDE_UTILISATION_V2.md`
+**Document Reviewer - Version Modulaire**
 

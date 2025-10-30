@@ -3,7 +3,7 @@ AI processing using OpenAI API.
 """
 
 from openai import OpenAI
-from typing import Optional
+from typing import Optional, Tuple
 
 
 class AIProcessor:
@@ -17,6 +17,80 @@ class AIProcessor:
         self.client = OpenAI(api_key=api_key)
         self.model = model
         self.conversation_history = []
+    
+    def validate_instruction(self, instruction: str) -> Tuple[bool, str, str]:
+        """
+        Valide qu'une instruction personnalisée est appropriée pour la révision de document.
+        
+        Args:
+            instruction: Instruction à valider
+            
+        Returns:
+            Tuple (est_valide, message, reformulation_proposée)
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Tu es un validateur d'instructions pour un outil de révision de documents Word avec IA.\n"
+                            "L'outil utilise un LLM (GPT) pour modifier le TEXTE du document.\n\n"
+                            "IMPORTANT : Le LLM peut UNIQUEMENT modifier le texte, PAS le formatage (gras, italic, couleur, police).\n\n"
+                            "Tu dois vérifier :\n"
+                            "1. L'instruction s'applique-t-elle à TOUT le document (pas un endroit spécifique) ?\n"
+                            "2. L'instruction demande-t-elle du formatage impossible (gras, italic, police, couleur) ?\n\n"
+                            "CE QUI EST POSSIBLE :\n"
+                            "- Modifier le contenu textuel (rendre professionnel, simplifier, etc.)\n"
+                            "- MAJUSCULES/minuscules (c'est du texte)\n"
+                            "- Traduction, reformulation, ton, style d'écriture\n\n"
+                            "CE QUI EST IMPOSSIBLE :\n"
+                            "- Gras, italic, souligné\n"
+                            "- Changer la police ou la taille\n"
+                            "- Couleurs, surlignage\n\n"
+                            "EXEMPLES VALIDES :\n"
+                            "- 'rends le texte plus professionnel' ✓\n"
+                            "- 'met tout en MAJUSCULES' ✓\n"
+                            "- 'simplifie le vocabulaire' ✓\n\n"
+                            "EXEMPLES À REFORMULER :\n"
+                            "- 'met en gras et majuscule' → REFORMULER vers 'met en MAJUSCULES'\n"
+                            "- 'change la police en Arial et rends formel' → REFORMULER vers 'rends le texte plus formel'\n\n"
+                            "EXEMPLES INVALIDES :\n"
+                            "- 'change le titre' (spécifique)\n"
+                            "- 'met en gras' (impossible, aucune reformulation textuelle)\n\n"
+                            "Réponds UNIQUEMENT par l'un de ces formats :\n"
+                            "- 'VALIDE' si l'instruction est entièrement réalisable\n"
+                            "- 'REFORMULER: [nouvelle instruction]' si possible en retirant les parties impossibles\n"
+                            "- 'INVALIDE: [raison]' si l'instruction cible un endroit spécifique ou est entièrement impossible\n"
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Instruction à valider : {instruction}"
+                    }
+                ],
+                temperature=0.3,
+            )
+            
+            result = response.choices[0].message.content.strip()
+            
+            if result.startswith("VALIDE"):
+                return True, "", ""
+            elif result.startswith("REFORMULER:"):
+                reformulation = result.replace("REFORMULER:", "").strip()
+                return False, "reformulation_proposée", reformulation
+            elif result.startswith("INVALIDE"):
+                reason = result.replace("INVALIDE:", "").strip()
+                return False, reason, ""
+            else:
+                # Par sécurité, si format inattendu, on considère comme invalide
+                return False, "Format de réponse inattendu du validateur.", ""
+                
+        except Exception as e:
+            print(f"⚠️  Erreur lors de la validation: {e}")
+            # En cas d'erreur, on laisse passer
+            return True, "", ""
     
     def call_openai(self, instruction: str, text: str, context: str = "", is_correction: bool = False, language: Optional[str] = None) -> str:
         """

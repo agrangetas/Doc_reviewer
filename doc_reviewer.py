@@ -171,6 +171,7 @@ class DocumentReviewer:
         print("  - 'uniformise' : Uniformise les styles (police, tailles, etc.)")
         print("  - ou toute autre instruction personnalisée")
         print("  - 'save' : Sauvegarder")
+        print("  - 'help' : Afficher l'aide")
         print("  - 'quit' : Quitter")
         print("=" * 60)
         
@@ -193,6 +194,24 @@ class DocumentReviewer:
                     self.uniformize_styles()
                     continue
                 
+                if user_input.lower() == 'help':
+                    print("\n" + "=" * 60)
+                    print("COMMANDES DISPONIBLES")
+                    print("=" * 60)
+                    print("\n📝 Modification du contenu:")
+                    print("  corrige              - Corrige l'orthographe et la grammaire")
+                    print("  traduis [langue]     - Traduit le document (ex: traduis anglais)")
+                    print("  améliore             - Améliore le style et la clarté")
+                    print("  [instruction libre]  - Toute instruction personnalisée")
+                    print("\n🎨 Mise en forme:")
+                    print("  uniformise           - Uniformise les styles (police, tailles)")
+                    print("\n💾 Gestion du document:")
+                    print("  save                 - Sauvegarde le document modifié")
+                    print("  quit                 - Quitte l'application")
+                    print("  help                 - Affiche cette aide")
+                    print("\n" + "=" * 60)
+                    continue
+                
                 # Traiter l'instruction
                 if user_input.lower().startswith('corrige'):
                     instruction = "Corrige toutes les fautes d'orthographe et de grammaire dans ce texte."
@@ -202,7 +221,42 @@ class DocumentReviewer:
                 elif user_input.lower() == 'améliore':
                     instruction = "Améliore le style et la clarté de ce texte."
                 else:
+                    # Instruction personnalisée : valider d'abord
                     instruction = user_input
+                    print("\n🔍 Validation de l'instruction...")
+                    is_valid, reason, reformulation = self.ai_processor.validate_instruction(instruction)
+                    
+                    if not is_valid:
+                        # Cas 1 : Reformulation proposée
+                        if reason == "reformulation_proposée" and reformulation:
+                            print(f"\n⚠️  Votre instruction contient des éléments impossibles (formatage).")
+                            print(f"\n💡 Reformulation proposée :")
+                            print(f"   '{reformulation}'")
+                            print(f"\n   (Le LLM peut modifier le TEXTE mais pas le formatage comme gras/italic/police)")
+                            
+                            confirmation = input("\n   Accepter cette reformulation ? (o/n): ").strip().lower()
+                            if confirmation == 'o':
+                                instruction = reformulation
+                                print("✅ Reformulation acceptée !")
+                            else:
+                                print("❌ Annulé. Veuillez entrer une nouvelle instruction.")
+                                continue
+                        
+                        # Cas 2 : Instruction totalement invalide
+                        else:
+                            print(f"\n❌ Instruction invalide : {reason}")
+                            print("\n💡 Rappel :")
+                            print("  - L'instruction doit s'appliquer à TOUT le document")
+                            print("  - Le LLM peut modifier le TEXTE (contenu, majuscules, ton, style)")
+                            print("  - Le LLM ne peut PAS modifier le formatage (gras, police, couleur)")
+                            print("\n  Exemples valides :")
+                            print("    • 'rends le texte plus professionnel'")
+                            print("    • 'met tout en MAJUSCULES'")
+                            print("    • 'simplifie le vocabulaire'")
+                            print("\nVeuillez reformuler votre instruction.")
+                            continue
+                    
+                    print("✅ Instruction validée !")
                 
                 self.process_document(instruction)
                 

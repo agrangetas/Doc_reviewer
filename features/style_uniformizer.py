@@ -33,14 +33,26 @@ class StyleUniformizer:
         fonts = []
         sizes_text = []
         sizes_headings = []
+        total_runs = 0
+        runs_with_font = 0
+        runs_without_font = 0
+        heading_count = 0
         
         for paragraph in document.paragraphs:
             # Détecter si c'est un titre
             is_heading = self._is_heading(paragraph)
+            if is_heading:
+                heading_count += 1
             
             for run in paragraph.runs:
                 if run.text.strip():
-                    fonts.append(run.font.name)
+                    total_runs += 1
+                    # Ignorer les polices None
+                    if run.font.name:
+                        fonts.append(run.font.name)
+                        runs_with_font += 1
+                    else:
+                        runs_without_font += 1
                     if run.font.size:
                         if is_heading:
                             sizes_headings.append(run.font.size)
@@ -65,6 +77,12 @@ class StyleUniformizer:
             'size_heading': {
                 'most_common': most_common_size_heading[0],
                 'percentage': (most_common_size_heading[1] / len(sizes_headings) * 100) if sizes_headings else 0
+            },
+            'debug': {
+                'total_runs': total_runs,
+                'runs_with_font': runs_with_font,
+                'runs_without_font': runs_without_font,
+                'heading_count': heading_count
             }
         }
     
@@ -80,25 +98,30 @@ class StyleUniformizer:
         """
         # Vérifier le style Word en priorité
         if self.style_config['heading_detection']['use_word_styles']:
-            if paragraph.style.name.startswith('Heading'):
+            style_name = paragraph.style.name if hasattr(paragraph.style, 'name') else str(paragraph.style)
+            if 'Heading' in style_name or 'Titre' in style_name:
                 return True
         
         # Utiliser les heuristiques si configuré
         if self.style_config['heading_detection']['use_heuristics']:
             # Titre court
+            if len(paragraph.text.strip()) == 0:
+                return False
             if len(paragraph.text) > self.style_config['heading_detection']['heuristic_rules']['max_length']:
                 return False
             
-            # Vérifier la taille de police
+            # Vérifier la taille de police (plus grande que le texte normal)
             if paragraph.runs:
                 first_run = paragraph.runs[0]
                 if first_run.font.size:
-                    # TODO: Comparer avec la taille moyenne du texte
-                    pass
+                    # Si la taille est > 12pt (152400 EMUs), probablement un titre
+                    if first_run.font.size > 152400:
+                        return True
             
-            # Vérifier le bold si requis
-            if self.style_config['heading_detection']['heuristic_rules']['must_be_bold']:
-                if paragraph.runs and paragraph.runs[0].bold:
+            # Vérifier le bold
+            if paragraph.runs and paragraph.runs[0].bold:
+                # Bold + court = probablement un titre
+                if len(paragraph.text) < 100:
                     return True
         
         return False
@@ -171,14 +194,34 @@ class StyleUniformizer:
         print("UNIFORMISATION DES STYLES")
         print("=" * 60)
         print(f"\nAnalyse du document:")
-        print(f"  Police majoritaire: {analysis['font']['most_common']} ({analysis['font']['percentage']:.1f}%)")
-        print(f"  Taille texte majoritaire: {analysis['size_text']['most_common']}")
+        print(f"  Paragraphes totaux: {len(document.paragraphs)}")
+        print(f"  Titres détectés: {analysis['debug']['heading_count']}")
+        print(f"  Runs analysés: {analysis['debug']['total_runs']}")
+        print(f"  Runs avec police: {analysis['debug']['runs_with_font']}")
+        print(f"  Runs sans police: {analysis['debug']['runs_without_font']}")
+        print(f"\n  Police majoritaire: {analysis['font']['most_common'] or '(non détectée)'} ({analysis['font']['percentage']:.1f}%)")
+        
+        # Afficher les polices détectées si utile
+        if analysis['font']['all_fonts']:
+            top_fonts = analysis['font']['all_fonts'].most_common(3)
+            if len(top_fonts) > 1:
+                print(f"  Autres polices: {', '.join([f'{font} ({count})' for font, count in top_fonts[1:]])}")
+        
+        # Convertir EMUs en points pour l'affichage (12700 EMUs = 1 point)
+        size_in_points = analysis['size_text']['most_common'] / 12700 if analysis['size_text']['most_common'] else None
+        print(f"  Taille texte majoritaire: {size_in_points:.1f}pt ({analysis['size_text']['most_common']} EMUs)" if size_in_points else "  Taille texte majoritaire: (non détectée)")
+        
+        # Vérifier qu'on a au moins une valeur à uniformiser
+        if not target_font and not target_size_text:
+            print("\n⚠️  Impossible d'uniformiser : aucune police ou taille détectée.")
+            print("   Le document ne contient peut-être pas d'informations de formatage exploitables.")
+            return {'error': 'no_valid_styles'}
         
         # Demander confirmation si configuré
         if self.style_config['application']['ask_confirmation']:
-            print(f"\nStyleuniformisation proposée:")
-            print(f"  Police: {target_font}")
-            print(f"  Taille texte: {target_size_text}")
+            print(f"\nUniformisation proposée:")
+            print(f"  Police: {target_font or '(inchangée)'}")
+            print(f"  Taille texte: {target_size_text or '(inchangée)'}")
             
             confirm = input("\nAppliquer ces modifications ? (o/n): ").strip().lower()
             if confirm != 'o':
@@ -188,9 +231,14 @@ class StyleUniformizer:
         # Appliquer l'uniformisation
         modified_paragraphs = 0
         preserved_emphasis = 0
+        font_changes = 0
+        size_changes = 0
+        
+        print("\n🔄 Application des modifications...")
         
         for paragraph in document.paragraphs:
             is_heading = self._is_heading(paragraph)
+            paragraph_modified = False
             
             for i, run in enumerate(paragraph.runs):
                 if not run.text.strip():
@@ -204,19 +252,29 @@ class StyleUniformizer:
                     # Changer la police mais garder le style (bold/italic)
                     if target_font and run.font.name != target_font:
                         run.font.name = target_font
+                        paragraph_modified = True
+                        font_changes += 1
                     continue
                 
                 # Uniformiser la police
                 if target_font and run.font.name != target_font:
                     run.font.name = target_font
-                    modified_paragraphs += 1
+                    paragraph_modified = True
+                    font_changes += 1
                 
                 # Uniformiser la taille (seulement pour texte normal)
                 if not is_heading and target_size_text and run.font.size != target_size_text:
                     run.font.size = target_size_text
+                    paragraph_modified = True
+                    size_changes += 1
+            
+            if paragraph_modified:
+                modified_paragraphs += 1
         
         print(f"\n✓ Uniformisation terminée !")
         print(f"  Paragraphes modifiés: {modified_paragraphs}")
+        print(f"  Changements de police: {font_changes}")
+        print(f"  Changements de taille: {size_changes}")
         print(f"  Emphases préservées: {preserved_emphasis}")
         print("=" * 60)
         
