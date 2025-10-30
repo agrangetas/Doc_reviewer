@@ -103,7 +103,35 @@ class DocumentReviewer:
         if not self.current_document:
             raise ValueError("Aucun document chargé.")
         
-        self.style_uniformizer.uniformize(self.current_document)
+        # Lancer l'uniformisation
+        result = self.style_uniformizer.uniformize(self.current_document)
+        
+        # Logger l'opération si pas annulée
+        if result.get('cancelled') or result.get('error'):
+            return
+        
+        # Logger l'uniformisation dans le fichier de log
+        if self.logger.log_file:
+            from datetime import datetime
+            with open(self.logger.log_file, 'a', encoding='utf-8') as f:
+                f.write("-" * 80 + "\n")
+                f.write(f"UNIFORMISATION DES STYLES\n")
+                f.write(f"Date/Heure: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("-" * 80 + "\n\n")
+                f.write(f"Configuration cible:\n")
+                f.write(f"  Police: {result.get('target_font', 'N/A')}\n")
+                f.write(f"  Taille: {result.get('target_size', 'N/A')} EMUs\n")
+                f.write(f"  Couleur: {result.get('target_color', 'N/A')}\n")
+                f.write(f"  Interligne: {result.get('target_line_spacing', 'N/A')}\n")
+                f.write(f"\nModifications appliquées:\n")
+                f.write(f"  Paragraphes modifiés: {result.get('modified_paragraphs', 0)}\n")
+                f.write(f"  Changements de police: {result.get('font_changes', 0)}\n")
+                f.write(f"  Changements de taille: {result.get('size_changes', 0)}\n")
+                f.write(f"  Changements de couleur: {result.get('color_changes', 0)}\n")
+                f.write(f"  Changements d'interligne: {result.get('spacing_changes', 0)}\n")
+                f.write(f"  Emphases préservées: {result.get('preserved_emphasis', 0)}\n")
+                f.write(f"\nNote: Les puces ne sont pas encore uniformisées (détection implémentée).\n")
+                f.write("\n" + "=" * 80 + "\n\n")
     
     def process_document(self, instruction: str) -> None:
         """Traite le document avec une instruction."""

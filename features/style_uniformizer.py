@@ -33,16 +33,38 @@ class StyleUniformizer:
         fonts = []
         sizes_text = []
         sizes_headings = []
+        colors_text = []
+        colors_by_heading_level = {1: [], 2: [], 3: []}
+        line_spacings_text = []
+        bullet_styles = {}  # {niveau_indentation: [styles]}
+        
         total_runs = 0
         runs_with_font = 0
         runs_without_font = 0
         heading_count = 0
         
         for paragraph in document.paragraphs:
-            # Détecter si c'est un titre
+            # Détecter si c'est un titre et son niveau
             is_heading = self._is_heading(paragraph)
+            heading_level = self._get_heading_level(paragraph) if is_heading else 0
+            
             if is_heading:
                 heading_count += 1
+            
+            # Analyser l'interligne (seulement pour texte normal)
+            if not is_heading and paragraph.text.strip():
+                if paragraph.paragraph_format.line_spacing:
+                    line_spacings_text.append(paragraph.paragraph_format.line_spacing)
+            
+            # Analyser les puces
+            if paragraph.style.name.startswith('List') or '•' in paragraph.text[:3]:
+                indent_level = int(paragraph.paragraph_format.left_indent or 0) if paragraph.paragraph_format.left_indent else 0
+                indent_level = indent_level // 360000  # Convertir en niveau (360000 = 0.25")
+                bullet_char = paragraph.text.strip()[0] if paragraph.text.strip() else None
+                if indent_level not in bullet_styles:
+                    bullet_styles[indent_level] = []
+                if bullet_char:
+                    bullet_styles[indent_level].append(bullet_char)
             
             for run in paragraph.runs:
                 if run.text.strip():
@@ -58,11 +80,35 @@ class StyleUniformizer:
                             sizes_headings.append(run.font.size)
                         else:
                             sizes_text.append(run.font.size)
+                    
+                    # Analyser les couleurs
+                    if run.font.color and run.font.color.rgb:
+                        color = run.font.color.rgb
+                        if is_heading and heading_level in colors_by_heading_level:
+                            colors_by_heading_level[heading_level].append(color)
+                        elif not is_heading:
+                            colors_text.append(color)
         
         # Calculer les valeurs majoritaires
         most_common_font = Counter(fonts).most_common(1)[0] if fonts else (None, 0)
         most_common_size_text = Counter(sizes_text).most_common(1)[0] if sizes_text else (None, 0)
         most_common_size_heading = Counter(sizes_headings).most_common(1)[0] if sizes_headings else (None, 0)
+        most_common_color_text = Counter(colors_text).most_common(1)[0] if colors_text else (None, 0)
+        most_common_line_spacing = Counter(line_spacings_text).most_common(1)[0] if line_spacings_text else (None, 0)
+        
+        # Couleurs par niveau de titre
+        heading_colors = {}
+        for level in [1, 2, 3]:
+            if colors_by_heading_level[level]:
+                heading_colors[level] = Counter(colors_by_heading_level[level]).most_common(1)[0][0]
+            else:
+                heading_colors[level] = None
+        
+        # Puces par niveau
+        bullet_chars = {}
+        for level, chars in bullet_styles.items():
+            if chars:
+                bullet_chars[level] = Counter(chars).most_common(1)[0][0]
         
         return {
             'font': {
@@ -78,6 +124,16 @@ class StyleUniformizer:
                 'most_common': most_common_size_heading[0],
                 'percentage': (most_common_size_heading[1] / len(sizes_headings) * 100) if sizes_headings else 0
             },
+            'color_text': {
+                'most_common': most_common_color_text[0],
+                'count': most_common_color_text[1] if colors_text else 0
+            },
+            'colors_headings': heading_colors,
+            'line_spacing': {
+                'most_common': most_common_line_spacing[0],
+                'count': most_common_line_spacing[1] if line_spacings_text else 0
+            },
+            'bullets': bullet_chars,
             'debug': {
                 'total_runs': total_runs,
                 'runs_with_font': runs_with_font,
@@ -125,6 +181,40 @@ class StyleUniformizer:
                     return True
         
         return False
+    
+    def _get_heading_level(self, paragraph) -> int:
+        """
+        Détermine le niveau d'un titre (1, 2, 3, etc.).
+        
+        Args:
+            paragraph: Paragraphe docx
+            
+        Returns:
+            Niveau du titre (1-3), 0 si pas de niveau détecté
+        """
+        style_name = paragraph.style.name if hasattr(paragraph.style, 'name') else str(paragraph.style)
+        
+        # Extraire le niveau depuis le style Word
+        if 'Heading 1' in style_name or 'Titre 1' in style_name:
+            return 1
+        elif 'Heading 2' in style_name or 'Titre 2' in style_name:
+            return 2
+        elif 'Heading 3' in style_name or 'Titre 3' in style_name:
+            return 3
+        
+        # Heuristique : taille de police
+        if paragraph.runs:
+            first_run = paragraph.runs[0]
+            if first_run.font.size:
+                # > 14pt = H1, 13-14pt = H2, 12-13pt = H3
+                if first_run.font.size > 177800:  # > 14pt
+                    return 1
+                elif first_run.font.size > 165100:  # > 13pt
+                    return 2
+                elif first_run.font.size > 152400:  # > 12pt
+                    return 3
+        
+        return 1  # Par défaut niveau 1
     
     def _is_intentional_emphasis(self, paragraph, run_index: int) -> bool:
         """
@@ -196,9 +286,9 @@ class StyleUniformizer:
         print(f"\nAnalyse du document:")
         print(f"  Paragraphes totaux: {len(document.paragraphs)}")
         print(f"  Titres détectés: {analysis['debug']['heading_count']}")
-        print(f"  Runs analysés: {analysis['debug']['total_runs']}")
-        print(f"  Runs avec police: {analysis['debug']['runs_with_font']}")
-        print(f"  Runs sans police: {analysis['debug']['runs_without_font']}")
+        print(f"\n  Fragments de texte (runs) analysés: {analysis['debug']['total_runs']}")
+        print(f"    • Avec police définie: {analysis['debug']['runs_with_font']}")
+        print(f"    • Sans police définie: {analysis['debug']['runs_without_font']}")
         print(f"\n  Police majoritaire: {analysis['font']['most_common'] or '(non détectée)'} ({analysis['font']['percentage']:.1f}%)")
         
         # Afficher les polices détectées si utile
@@ -211,9 +301,39 @@ class StyleUniformizer:
         size_in_points = analysis['size_text']['most_common'] / 12700 if analysis['size_text']['most_common'] else None
         print(f"  Taille texte majoritaire: {size_in_points:.1f}pt ({analysis['size_text']['most_common']} EMUs)" if size_in_points else "  Taille texte majoritaire: (non détectée)")
         
+        # Afficher couleurs
+        if analysis['color_text']['most_common']:
+            color_rgb = analysis['color_text']['most_common']
+            print(f"\n  Couleur texte majoritaire: RGB{color_rgb} ({analysis['color_text']['count']} occurrences)")
+        
+        # Afficher couleurs titres
+        heading_colors_found = [level for level, color in analysis['colors_headings'].items() if color]
+        if heading_colors_found:
+            print(f"  Couleurs titres détectées:")
+            for level in heading_colors_found:
+                color = analysis['colors_headings'][level]
+                print(f"    • Niveau {level}: RGB{color}")
+        
+        # Afficher interligne
+        if analysis['line_spacing']['most_common']:
+            spacing = analysis['line_spacing']['most_common']
+            print(f"\n  Interligne majoritaire: {spacing} ({analysis['line_spacing']['count']} paragraphes)")
+        
+        # Afficher puces
+        if analysis['bullets']:
+            print(f"\n  Puces détectées:")
+            for level, bullet in analysis['bullets'].items():
+                print(f"    • Niveau {level}: '{bullet}'")
+        
+        # Déterminer valeurs cibles pour les nouvelles options
+        target_color_text = analysis['color_text']['most_common']
+        target_colors_headings = analysis['colors_headings']
+        target_line_spacing = analysis['line_spacing']['most_common']
+        target_bullets = analysis['bullets']
+        
         # Vérifier qu'on a au moins une valeur à uniformiser
-        if not target_font and not target_size_text:
-            print("\n⚠️  Impossible d'uniformiser : aucune police ou taille détectée.")
+        if not any([target_font, target_size_text, target_color_text, target_line_spacing, target_bullets]):
+            print("\n⚠️  Impossible d'uniformiser : aucun style détecté.")
             print("   Le document ne contient peut-être pas d'informations de formatage exploitables.")
             return {'error': 'no_valid_styles'}
         
@@ -221,7 +341,12 @@ class StyleUniformizer:
         if self.style_config['application']['ask_confirmation']:
             print(f"\nUniformisation proposée:")
             print(f"  Police: {target_font or '(inchangée)'}")
-            print(f"  Taille texte: {target_size_text or '(inchangée)'}")
+            target_size_display = f"{target_size_text / 12700:.1f}pt" if target_size_text else "(inchangée)"
+            print(f"  Taille texte: {target_size_display}")
+            print(f"  Couleur texte: {'Oui' if target_color_text else '(inchangée)'}")
+            print(f"  Couleurs titres: {'Oui (par niveau)' if any(target_colors_headings.values()) else '(inchangée)'}")
+            print(f"  Interligne: {'Oui' if target_line_spacing else '(inchangé)'}")
+            print(f"  Puces: {'Oui (par niveau)' if target_bullets else '(inchangées)'}")
             
             confirm = input("\nAppliquer ces modifications ? (o/n): ").strip().lower()
             if confirm != 'o':
@@ -233,12 +358,22 @@ class StyleUniformizer:
         preserved_emphasis = 0
         font_changes = 0
         size_changes = 0
+        color_changes = 0
+        spacing_changes = 0
         
         print("\n🔄 Application des modifications...")
         
         for paragraph in document.paragraphs:
             is_heading = self._is_heading(paragraph)
+            heading_level = self._get_heading_level(paragraph) if is_heading else 0
             paragraph_modified = False
+            
+            # Uniformiser l'interligne (seulement texte normal)
+            if not is_heading and target_line_spacing:
+                if paragraph.paragraph_format.line_spacing != target_line_spacing:
+                    paragraph.paragraph_format.line_spacing = target_line_spacing
+                    paragraph_modified = True
+                    spacing_changes += 1
             
             for i, run in enumerate(paragraph.runs):
                 if not run.text.strip():
@@ -267,6 +402,21 @@ class StyleUniformizer:
                     run.font.size = target_size_text
                     paragraph_modified = True
                     size_changes += 1
+                
+                # Uniformiser la couleur
+                if target_color_text and not is_heading:
+                    # Pour le texte normal
+                    if run.font.color.rgb != target_color_text:
+                        run.font.color.rgb = target_color_text
+                        paragraph_modified = True
+                        color_changes += 1
+                elif is_heading and heading_level in target_colors_headings:
+                    # Pour les titres (par niveau)
+                    target_heading_color = target_colors_headings[heading_level]
+                    if target_heading_color and run.font.color.rgb != target_heading_color:
+                        run.font.color.rgb = target_heading_color
+                        paragraph_modified = True
+                        color_changes += 1
             
             if paragraph_modified:
                 modified_paragraphs += 1
@@ -275,13 +425,21 @@ class StyleUniformizer:
         print(f"  Paragraphes modifiés: {modified_paragraphs}")
         print(f"  Changements de police: {font_changes}")
         print(f"  Changements de taille: {size_changes}")
+        print(f"  Changements de couleur: {color_changes}")
+        print(f"  Changements d'interligne: {spacing_changes}")
         print(f"  Emphases préservées: {preserved_emphasis}")
         print("=" * 60)
         
         return {
             'modified_paragraphs': modified_paragraphs,
             'preserved_emphasis': preserved_emphasis,
+            'font_changes': font_changes,
+            'size_changes': size_changes,
+            'color_changes': color_changes,
+            'spacing_changes': spacing_changes,
             'target_font': target_font,
-            'target_size': target_size_text
+            'target_size': target_size_text,
+            'target_color': target_color_text,
+            'target_line_spacing': target_line_spacing
         }
 

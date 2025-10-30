@@ -1,0 +1,2 @@
+"""Word document processing implementation."""
+

@@ -1,0 +1,2 @@
+"""PowerPoint document processing implementation."""
+

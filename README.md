@@ -1,6 +1,8 @@
 # 📄 Document Reviewer - Architecture Modulaire
 
-Outil de révision automatique de documents Word avec IA (OpenAI) et uniformisation des styles.
+Outil de révision automatique de documents **Word** et **PowerPoint** avec IA (OpenAI) et uniformisation des styles.
+
+**Formats supportés** : `.docx`, `.doc`, `.pptx` (PowerPoint en développement)
 
 ## 🚀 Démarrage Rapide
 
@@ -21,12 +23,18 @@ OPENAI_MODEL=gpt-4o
 
 ### 3. Utilisation
 
+**Point d'entrée unifié (recommandé)** :
+```bash
+python main_review.py
+```
+
+**Ou spécifique à Word** :
 ```bash
 python doc_reviewer.py
 ```
 
 ```
-➤ Chemin du document: mon_document.docx
+➤ Chemin du document: mon_document.docx  # ou .pptx
 ➤ Votre commande: corrige
 ➤ Votre commande: uniformise
 ➤ Votre commande: save
@@ -52,10 +60,15 @@ python doc_reviewer.py
 - Conservation du sens original
 
 ### 🎨 Uniformisation des Styles (Nouveau !)
-- Uniformise police et tailles automatiquement
+- Uniformise **police**, **tailles**, **couleurs** et **interlignes** automatiquement
+- **Couleurs par niveau de titre** : cohérence entre titres de même niveau
+- **Interlignes** : uniformise les paragraphes de texte (pas les titres)
 - **Préserve les emphases intentionnelles** (bold/italic sur 1 mot)
-- Détecte et traite les titres séparément
+- Détecte et traite les **titres** séparément (non modifiés en taille)
+- Enregistre les actions dans les **logs**
 - Configurable via `style_config.yaml`
+
+**Note** : *L'uniformisation des puces est en développement (détection implémentée).*
 
 ---
 
