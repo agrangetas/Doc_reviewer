@@ -270,20 +270,19 @@ class PowerPointProcessor(DocumentProcessor):
         print("✓ Traitement terminé")
         print('=' * 60)
     
-    def process_targeted(self, target: dict, instruction: str, original_input: str) -> None:
+    def process_targeted(self, target: dict, instruction: str) -> None:
         """
         Traite un élément spécifique de la présentation.
         
         Args:
             target: Informations sur l'élément ciblé (depuis ElementResolver)
             instruction: Instruction à exécuter
-            original_input: Input utilisateur original
         """
         if not self.presentation:
             raise ValueError("Aucune présentation chargée.")
         
-        element_type = target.get('element_type')
-        slide_number = target.get('slide_number')
+        slide_number = target.slide
+        shape_index = target.shape
         
         if not slide_number or slide_number < 1 or slide_number > len(self.presentation.slides):
             raise ValueError(f"Numéro de slide invalide: {slide_number}")
@@ -297,7 +296,6 @@ class PowerPointProcessor(DocumentProcessor):
         print('=' * 60)
         
         # Trouver le shape ciblé
-        shape_index = target.get('shape_index')
         if shape_index is not None:
             shapes_with_text = [s for s in slide.shapes if hasattr(s, "text") and s.text.strip()]
             if shape_index < len(shapes_with_text):
