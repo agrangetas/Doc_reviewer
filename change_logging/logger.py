@@ -45,12 +45,12 @@ class ChangeLogger:
                 f.write(f"Langue détectée: {document_info['language']}\n")
             f.write("=" * 80 + "\n\n")
     
-    def log_change(self, paragraph_num: int, original: str, modified: str, instruction: str) -> None:
+    def log_change(self, paragraph_num, original: str, modified: str, instruction: str) -> None:
         """
         Enregistre un changement dans le fichier de log.
         
         Args:
-            paragraph_num: Numéro du paragraphe
+            paragraph_num: Numéro du paragraphe (int ou str pour PowerPoint)
             original: Texte original
             modified: Texte modifié
             instruction: Instruction qui a causé le changement
@@ -58,12 +58,18 @@ class ChangeLogger:
         if not self.log_file:
             return
         
+        # Déterminer si c'est une opération ciblée
+        is_targeted = "(ciblé)" in instruction or "ciblé" in instruction.lower()
+        
         # Déterminer si c'est une correction pour analyser les différences
         is_correction = any(word in instruction.lower() for word in ['corrige', 'correction', 'orthographe', 'grammaire'])
         
         with open(self.log_file, 'a', encoding='utf-8') as f:
             f.write("-" * 80 + "\n")
-            f.write(f"PARAGRAPHE {paragraph_num}\n")
+            if is_targeted:
+                f.write(f"🎯 TRAITEMENT CIBLÉ - ÉLÉMENT {paragraph_num}\n")
+            else:
+                f.write(f"PARAGRAPHE {paragraph_num}\n")
             f.write(f"Instruction: {instruction}\n")
             f.write(f"Date/Heure: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write("-" * 80 + "\n\n")

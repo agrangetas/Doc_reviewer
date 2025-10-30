@@ -96,7 +96,7 @@ def get_processor(format_type: str):
         raise ValueError(f"Format inconnu : {format_type}")
 
 
-def interactive_mode(processor, file_path: str, format_name: str):
+def interactive_mode(processor, file_path: str, format_name: str, format_type: str):
     """
     Mode interactif pour le traitement de documents.
     
@@ -104,6 +104,7 @@ def interactive_mode(processor, file_path: str, format_name: str):
         processor: Processeur de document
         file_path: Chemin vers le fichier
         format_name: Nom du format (pour l'affichage)
+        format_type: Type de format ('word' ou 'powerpoint')
     """
     processor.load_document(file_path)
     
@@ -187,21 +188,62 @@ def interactive_mode(processor, file_path: str, format_name: str):
             if is_standard_command:
                 processor.process_document(instruction)
             else:
-                # Instruction personnalisée ou ciblée : utiliser la résolution LLM
+                # Instruction personnalisée ou ciblée : utiliser le parsing LLM
                 print("\n🔍 Analyse de l'instruction...")
                 
-                # Extraire le contexte du document
+                # Importer les modules nécessaires
                 from core.base.document_context import DocumentContext
                 from features.element_resolver import ElementResolver
+                from features.input_parser import InputParser
                 
+                print(f"📄 Type de document: {format_type}")
+                
+                # Parser l'input avec LLM
+                input_parser = InputParser(processor.ai_processor)
+                parsed_input = input_parser.parse(user_input, format_type)
+                
+                # Afficher ce qui a été parsé
+                parsed_desc = InputParser.format_parsed_input(parsed_input)
+                print(f"   ✓ Parsé: {parsed_desc}")
+                print(f"   Confiance: {parsed_input.confidence:.0%}")
+                
+                # Si scope global sans ciblage précis, avertir
+                if parsed_input.scope_type == "global" and parsed_input.confidence > 0.5:
+                    print("\n⚠️  Scope global détecté")
+                    print("   💡 Pour une identification ciblée précise, mentionnez:")
+                    if format_type == 'word':
+                        print("      • 'page X', 'paragraphe X', 'première page', etc.")
+                    else:
+                        print("      • 'slide X', 'diapo X', 'première slide', etc.")
+                    print("   ⚡ Cela réduira les coûts API et améliorera la précision")
+                    
+                    # Demander confirmation
+                    confirm = input("\n   Continuer avec l'analyse complète ? (o/n): ").strip().lower()
+                    if confirm != 'o':
+                        print("❌ Annulé. Reformulez votre commande avec un scope spécifique.")
+                        continue
+                
+                # Extraire le contexte selon le parsing
                 if format_type == 'word':
-                    doc_context = DocumentContext.extract_for_word(processor.current_document)
+                    print("📊 Extraction de la structure Word...")
+                    doc_context = DocumentContext.extract_for_word(
+                        processor.current_document, 
+                        parsed_input,
+                        file_path  # Passer le chemin pour API Word
+                    )
+                    print(f"   ✓ {doc_context['paragraphs_shown']} paragraphes extraits")
+                    if 'total_pages' in doc_context:
+                        print(f"   📄 Document: {doc_context['total_pages']} pages")
                 else:  # powerpoint
-                    doc_context = DocumentContext.extract_for_powerpoint(processor.presentation)
+                    print("📊 Extraction de la structure PowerPoint...")
+                    doc_context = DocumentContext.extract_for_powerpoint(processor.presentation, parsed_input)
+                    print(f"   ✓ {doc_context['slides_shown']} slides extraites")
                 
                 # Résoudre la cible avec le LLM
+                print("🤖 Envoi au LLM pour identification...")
                 resolver = ElementResolver(processor.ai_processor)
                 target = resolver.resolve(user_input, doc_context)
+                print("   ✓ Réponse LLM reçue")
                 
                 # Afficher ce qui a été identifié
                 target_desc = ElementResolver.format_target_description(target, doc_context['type'])
@@ -326,7 +368,7 @@ def main():
         processor = get_processor(format_type)
         
         # Lancer le mode interactif
-        interactive_mode(processor, file_path, format_name)
+        interactive_mode(processor, file_path, format_name, format_type)
         
     except ValueError as e:
         print(f"\n❌ {e}")

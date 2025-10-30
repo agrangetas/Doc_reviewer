@@ -149,6 +149,9 @@ RÈGLES :
         
         except Exception as e:
             # En cas d'erreur, retourner une cible globale par défaut
+            print(f"⚠️  Erreur lors de l'identification: {e}")
+            import traceback
+            traceback.print_exc()
             return ResolvedTarget(
                 scope="global",
                 instruction=user_input,
@@ -170,6 +173,7 @@ RÈGLES :
         """
         try:
             # Nettoyer la réponse (enlever les markdown blocks si présents)
+            original_response = response
             response = response.strip()
             if response.startswith('```'):
                 # Enlever les blocs markdown
@@ -179,8 +183,13 @@ RÈGLES :
                 if response.startswith('json'):
                     response = response[4:].strip()
             
+            # Log pour debug
+            if original_response != response:
+                print(f"   📝 Réponse nettoyée (markdown retiré)")
+            
             # Parser le JSON
             data = json.loads(response)
+            print(f"   📊 JSON parsé avec succès: scope={data.get('scope', 'N/A')}")
             
             # Créer le ResolvedTarget
             target = ResolvedTarget(

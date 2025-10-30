@@ -7,6 +7,13 @@ import json
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, asdict
 
+# Tentative d'import de win32com pour accès aux vraies pages
+try:
+    import win32com.client
+    WIN32COM_AVAILABLE = True
+except ImportError:
+    WIN32COM_AVAILABLE = False
+
 
 @dataclass
 class ElementPosition:
@@ -31,35 +38,168 @@ class DocumentContext:
     """Extraction et représentation de la structure du document."""
     
     @staticmethod
-    def extract_for_word(document, scope: Optional[str] = None) -> Dict[str, Any]:
+    def _get_real_page_numbers_via_word(file_path: str) -> Optional[Dict[int, int]]:
         """
-        Extrait la structure d'un document Word.
+        Obtient les VRAIS numéros de page via l'API COM Word.
+        
+        Args:
+            file_path: Chemin du fichier Word
+            
+        Returns:
+            Dict {paragraph_index: page_number} ou None si échec
+        """
+        if not WIN32COM_AVAILABLE:
+            return None
+        
+        try:
+            print("   🔍 Tentative d'obtention des VRAIES pages via Word...")
+            
+            # Ouvrir Word
+            word = win32com.client.Dispatch("Word.Application")
+            word.Visible = False
+            
+            # Ouvrir le document
+            doc = word.Documents.Open(file_path)
+            
+            # Mapper chaque paragraphe à sa page
+            paragraph_pages = {}
+            
+            for i, para in enumerate(doc.Paragraphs, 1):
+                try:
+                    # Obtenir le vrai numéro de page
+                    page_num = para.Range.Information(3)  # wdActiveEndPageNumber = 3
+                    paragraph_pages[i] = page_num
+                except:
+                    # Si erreur, garder la page précédente ou 1
+                    paragraph_pages[i] = paragraph_pages.get(i-1, 1)
+            
+            total_pages = doc.ComputeStatistics(2)  # wdStatisticPages = 2
+            
+            # Fermer
+            doc.Close(False)
+            word.Quit()
+            
+            print(f"   ✅ VRAIES pages obtenues via Word ! ({total_pages} pages)")
+            
+            return paragraph_pages, total_pages
+        
+        except Exception as e:
+            print(f"   ⚠️  Word API non disponible: {e}")
+            return None
+    
+    @staticmethod
+    def extract_for_word(document, parsed_input=None, file_path=None) -> Dict[str, Any]:
+        """
+        Extrait la structure d'un document Word avec détection de pages.
         
         Args:
             document: Document Word (python-docx)
-            scope: Scope optionnel (ex: "paragraph 5" pour limiter le contexte)
+            parsed_input: ParsedInput optionnel pour ciblage
+            file_path: Chemin du fichier (pour API Word)
             
         Returns:
             Structure JSON du document
         """
         paragraphs = []
         
-        # Parser le scope si fourni
-        target_para = None
-        if scope and "paragraphe" in scope.lower():
-            try:
-                target_para = int(scope.split()[-1])
-            except (ValueError, IndexError):
-                pass
+        # Tenter d'obtenir les VRAIES pages via Word API
+        real_pages_result = None
+        if file_path:
+            import os
+            abs_path = os.path.abspath(file_path)
+            real_pages_result = DocumentContext._get_real_page_numbers_via_word(abs_path)
         
-        for i, para in enumerate(document.paragraphs, 1):
-            # Si scope défini, ne garder que le paragraphe ciblé et quelques voisins
-            if target_para and abs(i - target_para) > 2:
-                continue
+        # Si on a les vraies pages, les utiliser
+        if real_pages_result:
+            paragraph_pages, total_pages = real_pages_result
+            print(f"   📄 Utilisation des VRAIES pages ({total_pages} pages détectées)")
+        else:
+            # Fallback : estimation
+            print("   ⚠️  Fallback sur estimation (python-docx limitation)")
             
+            # Estimation ajustable selon le type de document
+            import os
+            chars_per_page = int(os.getenv('CHARS_PER_PAGE', '1500'))
+            cumulative_chars = 0
+            current_page = 1
+        
+        # Parser le scope si fourni via ParsedInput
+        target_page = None
+        target_para = None
+        relative_pos = None
+        
+        if parsed_input:
+            if parsed_input.scope_type == "page":
+                if parsed_input.relative_position == "first":
+                    target_page = 1
+                elif parsed_input.relative_position == "last":
+                    # On calculera après avoir parcouru tout
+                    target_page = -1
+                elif parsed_input.page_number:
+                    target_page = parsed_input.page_number
+                print(f"   🎯 Extraction ciblée: Page {target_page}")
+            elif parsed_input.scope_type == "paragraphe":
+                if parsed_input.relative_position == "first":
+                    target_para = 1
+                elif parsed_input.relative_position == "last":
+                    target_para = -1
+                elif parsed_input.paragraph_number:
+                    target_para = parsed_input.paragraph_number
+                print(f"   🎯 Extraction ciblée: Paragraphe {target_para}")
+        
+        # Si on n'a pas les vraies pages, calculer l'estimation
+        if not real_pages_result:
+            paragraph_pages = {}
+            cumulative_chars = 0
+            current_page = 1
+            
+            for i, para in enumerate(document.paragraphs, 1):
+                text = para.text.strip()
+                
+                # Poids ajusté selon le style (titres prennent plus de place visuellement)
+                para_weight = len(text)
+                
+                # Si c'est un titre, augmenter le poids (les titres prennent plus de place)
+                if para.style and para.style.name and ('Heading' in para.style.name or 'Titre' in para.style.name):
+                    para_weight = int(para_weight * 1.5)  # Les titres comptent pour 1.5x
+                
+                cumulative_chars += para_weight
+                
+                # Estimation du numéro de page
+                current_page = max(1, (cumulative_chars // chars_per_page) + 1)
+                paragraph_pages[i] = current_page
+            
+            total_pages = current_page
+            
+            # Log de l'estimation (utile pour ajuster si nécessaire)
+            if parsed_input and parsed_input.scope_type == "page":
+                print(f"   📊 Estimation: ~{chars_per_page} chars/page (ajustable via CHARS_PER_PAGE dans .env)")
+        
+        # Gérer "dernière page/paragraphe"
+        if target_page == -1:
+            target_page = total_pages
+            print(f"   📄 Dernière page détectée: page {target_page}")
+        if target_para == -1:
+            target_para = len(document.paragraphs)
+            print(f"   📄 Dernier paragraphe détecté: paragraphe {target_para}")
+        
+        # Deuxième passage : extraire selon le scope
+        for i, para in enumerate(document.paragraphs, 1):
             text = para.text.strip()
             if not text:
                 continue
+            
+            para_page = paragraph_pages.get(i, 1)
+            
+            # Filtrage selon le scope
+            if target_page:
+                # Si ciblage par page, garder seulement la page ciblée et voisines
+                if abs(para_page - target_page) > 1:
+                    continue
+            elif target_para:
+                # Si ciblage par paragraphe, garder ±5 voisins
+                if abs(i - target_para) > 5:
+                    continue
             
             # Extraire le style du premier run
             style_info = {}
@@ -80,6 +220,7 @@ class DocumentContext:
             
             element = {
                 'number': i,
+                'page': para_page,  # Ajout du numéro de page estimé
                 'text_preview': text[:150] + ('...' if len(text) > 150 else ''),
                 'text_length': len(text),
                 'style': style_info if style_info else None
@@ -87,38 +228,48 @@ class DocumentContext:
             
             paragraphs.append(element)
         
-        return {
+        result = {
             'type': 'document_word',
             'total_paragraphs': len(document.paragraphs),
+            'total_pages': total_pages,
             'paragraphs_shown': len(paragraphs),
-            'paragraphs': paragraphs,
-            'scope': scope
+            'paragraphs': paragraphs
+            # Note: parsed_input n'est pas inclus car non-sérialisable en JSON
         }
+        
+        # Log de l'optimisation
+        if target_page or target_para:
+            saved = len(document.paragraphs) - len(paragraphs)
+            if saved > 0:
+                scope_desc = f"page {target_page}" if target_page else f"paragraphe {target_para}"
+                print(f"   ⚡ Optimisation: {saved} paragraphes non envoyés ({scope_desc})")
+                print(f"   📊 Économie: {saved}/{len(document.paragraphs)} paragraphes ({saved/len(document.paragraphs)*100:.0f}%)")
+        
+        return result
     
     @staticmethod
-    def extract_for_powerpoint(presentation, scope: Optional[str] = None) -> Dict[str, Any]:
+    def extract_for_powerpoint(presentation, parsed_input=None) -> Dict[str, Any]:
         """
         Extrait la structure d'une présentation PowerPoint.
         
         Args:
             presentation: Présentation PowerPoint (python-pptx)
-            scope: Scope optionnel (ex: "slide 3" pour limiter le contexte)
+            parsed_input: ParsedInput optionnel pour ciblage
             
         Returns:
             Structure JSON de la présentation
         """
-        # Parser le scope si fourni
+        # Parser le scope si fourni via ParsedInput
         target_slide = None
-        if scope and "slide" in scope.lower():
-            try:
-                # Extraire le numéro de slide
-                parts = scope.lower().split()
-                for i, part in enumerate(parts):
-                    if part == "slide" or part == "s":
-                        target_slide = int(parts[i + 1])
-                        break
-            except (ValueError, IndexError):
-                pass
+        
+        if parsed_input and parsed_input.scope_type == "slide":
+            if parsed_input.relative_position == "first":
+                target_slide = 1
+            elif parsed_input.relative_position == "last":
+                target_slide = len(presentation.slides)
+            elif parsed_input.slide_number:
+                target_slide = parsed_input.slide_number
+            print(f"   🎯 Extraction ciblée: Slide {target_slide} uniquement")
         
         slides = []
         
@@ -190,13 +341,22 @@ class DocumentContext:
             
             slides.append(slide_info)
         
-        return {
+        result = {
             'type': 'presentation_powerpoint',
             'total_slides': len(presentation.slides),
             'slides_shown': len(slides),
-            'slides': slides,
-            'scope': scope
+            'slides': slides
+            # Note: parsed_input n'est pas inclus car non-sérialisable en JSON
         }
+        
+        # Log de l'optimisation
+        if target_slide:
+            saved = len(presentation.slides) - len(slides)
+            if saved > 0:
+                print(f"   ⚡ Optimisation: {saved} slides non envoyées (slide {target_slide})")
+                print(f"   📊 Économie: {saved}/{len(presentation.slides)} slides ({saved/len(presentation.slides)*100:.0f}%)")
+        
+        return result
     
     @staticmethod
     def _get_semantic_position(shape) -> Dict[str, Any]:

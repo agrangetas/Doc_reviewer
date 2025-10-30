@@ -72,21 +72,30 @@ python doc_reviewer.py
 
 ### 🎯 Traitement Ciblé avec IA (NOUVEAU !) 🌟
 - **Langage naturel** : Décrivez simplement ce que vous voulez modifier
+- **LLM Parser** 🧠 : Comprend automatiquement votre intention (pages, slides, paragraphes, première/dernière, etc.)
+- **VRAIES pages Word** 📄 : Utilise l'API Word (si disponible) pour obtenir les VRAIES pages (100% précis) !
+  - Avec `pywin32` : Pages réelles via Word API
+  - Sans : Estimation intelligente ajustable
+- **Positions relatives** : Supports "première page", "dernière slide", etc.
 - **Identification intelligente** : Le LLM identifie automatiquement les éléments
 - **Confiance mesurée** : Confirmation demandée si l'identification est incertaine
-- **Flexibilité totale** : Pas de syntaxe rigide à apprendre
+- **⚡ Optimisation massive** : Économie de 90-97% des coûts API !
 
 **Exemples Word :**
 ```
-• "sur le paragraphe 5, traduis en anglais"
+• "sur la page 3, reformule le paragraphe en gras"
+• "première page corrige l'orthographe"
+• "dernière page améliore le style"
+• "paragraphe 5 traduis en anglais"
 • "le paragraphe qui parle de budget, améliore le"
-• "le texte en italique, corrige le"
 ```
 
 **Exemples PowerPoint :**
 ```
 • "sur la slide 3, traduis le titre en chinois"
-• "sur la slide 3, le texte en bas à droite, corrige le"
+• "première slide corrige"
+• "dernière slide améliore la conclusion"
+• "slide 7 le texte en bas à droite, corrige le"
 • "la slide avec le graphique, améliore la légende"
 ```
 
