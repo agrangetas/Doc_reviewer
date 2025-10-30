@@ -57,20 +57,39 @@ def get_processor(format_type: str):
     Returns:
         Instance du processeur approprié
     """
+    # Initialiser les dépendances communes
+    from core.image_handler import ImageHandler
+    from core.style_extractor import StyleExtractor
+    from core.style_mapper import StyleMapper
+    from features.language_detector import LanguageDetector
+    from features.ai_processor import AIProcessor
+    from features.style_uniformizer import StyleUniformizer
+    from change_logging.logger import ChangeLogger
+    
+    config = Config()
+    api_key = config.get_api_key()
+    model = config.get_model()
+    
+    image_handler = ImageHandler()
+    style_extractor = StyleExtractor()
+    style_mapper = StyleMapper()
+    language_detector = LanguageDetector()
+    ai_processor = AIProcessor(api_key, model)
+    logger = ChangeLogger()
+    style_uniformizer = StyleUniformizer(config)
+    
     if format_type == 'word':
-        # Importer seulement si nécessaire
-        from doc_reviewer import DocumentReviewer
-        return DocumentReviewer()
+        from core.word.word_processor import WordProcessor
+        return WordProcessor(
+            config, image_handler, style_extractor, style_mapper,
+            language_detector, ai_processor, logger, style_uniformizer
+        )
     
     elif format_type == 'powerpoint':
-        print("\n⚠️  Support PowerPoint en cours de développement...")
-        print("Les fonctionnalités de base seront disponibles prochainement.\n")
-        # Pour l'instant, fallback sur le message
-        # TODO: from core.powerpoint.ppt_processor import PowerPointProcessor
-        # return PowerPointProcessor()
-        raise NotImplementedError(
-            "Le support PowerPoint est en cours de développement.\n"
-            "Utilisez actuellement des fichiers Word (.docx, .doc)."
+        from core.powerpoint.ppt_processor import PowerPointProcessor
+        return PowerPointProcessor(
+            config, image_handler, style_extractor, style_mapper,
+            language_detector, ai_processor, logger, style_uniformizer
         )
     
     else:

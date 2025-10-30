@@ -2,7 +2,7 @@
 
 Outil de révision automatique de documents **Word** et **PowerPoint** avec IA (OpenAI) et uniformisation des styles.
 
-**Formats supportés** : `.docx`, `.doc`, `.pptx` (PowerPoint en développement)
+**Formats supportés** : `.docx`, `.doc`, `.pptx`, `.ppt`
 
 ## 🚀 Démarrage Rapide
 
@@ -188,14 +188,53 @@ Contenu des logs :
 
 ---
 
+## 📊 Support PowerPoint
+
+Le support PowerPoint est **maintenant opérationnel** ! 
+
+### Fonctionnalités disponibles pour PowerPoint :
+- ✅ Correction orthographique et grammaticale
+- ✅ Traduction
+- ✅ Instructions personnalisées (amélioration, simplification, etc.)
+- ✅ Conservation du formatage (bold, italic, couleur, taille, etc.)
+- ✅ Détection automatique de la langue
+- ✅ Logging détaillé des modifications
+- ✅ Uniformisation de base (police et taille)
+- ⚠️ Uniformisation avancée (couleurs, interlignes) - prochainement
+
+### Utilisation :
+```bash
+python main_review.py
+➤ Chemin du document (Word/PowerPoint): ma_presentation.pptx
+```
+
+Le système détecte automatiquement le format et utilise le processeur approprié.
+
+---
+
+## 🏗️ Architecture Modulaire
+
+Le projet est organisé en modules :
+- **`core/base/`** : Classe abstraite pour les processeurs
+- **`core/word/`** : Processeur Word (.docx, .doc)
+- **`core/powerpoint/`** : Processeur PowerPoint (.pptx, .ppt)
+- **`features/`** : IA, détection de langue, uniformisation
+- **`change_logging/`** : Logging des modifications
+- **`utils/`** : Configuration (.env, YAML)
+
+Voir `ARCHITECTURE.md` pour plus de détails.
+
+---
+
 ## 🔧 Dépendances
 
 - `python-docx==1.1.2` - Manipulation de documents Word
+- `python-pptx==0.6.23` - Manipulation de présentations PowerPoint
 - `openai==1.12.0` - API OpenAI
 - `python-dotenv==1.0.1` - Gestion variables d'environnement
 - `httpx==0.27.0` - Client HTTP
 - `langdetect==1.0.9` - Détection de langue
-- `PyYAML==6.0.1` - Configuration YAML
+- `PyYAML==6.0` - Configuration YAML
 
 ---
 
