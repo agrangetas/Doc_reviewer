@@ -23,6 +23,12 @@ ENV/
 *_amélioré.docx
 *_marketing.docx
 
+*.docx
+*.pptx
+*.doc
+*.ppt
+
+
 # Logs de modifications
 LOGS/
 
