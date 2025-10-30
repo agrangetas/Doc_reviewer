@@ -1,0 +1,39 @@
+# Fichiers Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environnements virtuels
+venv/
+env/
+ENV/
+
+# Fichiers de configuration sensibles
+.env
+
+# Documents modifiés (fichiers de sortie)
+*_modifié.docx
+*_corrigé.docx
+*_EN.docx
+*_amélioré.docx
+*_marketing.docx
+
+# Logs de modifications
+LOGS/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+

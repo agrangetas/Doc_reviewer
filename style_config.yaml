@@ -1,0 +1,58 @@
+# Configuration pour l'uniformisation des styles
+# Si une valeur est 'auto', elle sera détectée automatiquement
+
+# Police du document
+font:
+  name: auto              # Police à utiliser (ex: 'Calibri', 'Arial', ou 'auto' pour détecter)
+  
+# Tailles de police
+sizes:
+  text_normal: auto       # Texte normal (ex: 11 ou 'auto')
+  heading_1: auto         # Titre niveau 1 (ex: 16 ou 'auto')
+  heading_2: auto         # Titre niveau 2 (ex: 14 ou 'auto')
+  heading_3: auto         # Titre niveau 3 (ex: 12 ou 'auto')
+  
+# Styles à préserver
+preserve:
+  intentional_emphasis: true    # Préserver bold/italic sur mots individuels
+  quotes: true                  # Préserver le style des citations
+  code_blocks: true             # Préserver les blocs de code (monospace)
+  
+# Détection des titres
+heading_detection:
+  use_word_styles: true         # Utiliser les styles Word (Heading 1, 2, 3...)
+  use_heuristics: true          # Détecter par taille/bold quand pas de style
+  heuristic_rules:
+    min_size_difference: 2      # Différence minimale (en pt) avec texte normal
+    must_be_bold: false         # Les titres doivent-ils être en gras ?
+    max_length: 100             # Longueur max d'un titre (en caractères)
+
+# Uniformisation des listes
+lists:
+  bullet_style: auto            # Style de puce ('•', '-', '→', ou 'auto')
+  number_style: auto            # Style de numérotation ('1.', '1)', ou 'auto')
+  indentation: auto             # Indentation (en pt, ou 'auto')
+
+# Interligne
+line_spacing:
+  normal_text: auto             # Interligne texte normal (ex: 1.15 ou 'auto')
+  headings: auto                # Interligne titres (ex: 1.0 ou 'auto')
+
+# Couleurs
+colors:
+  text_color: auto              # Couleur du texte (RGB ou 'auto' pour noir)
+  preserve_highlights: true     # Préserver les surlignages volontaires
+
+# Règles d'exception
+exceptions:
+  # Les styles suivants ne seront jamais modifiés
+  preserve_if_single_word: true         # Ne pas changer le style si appliqué à 1 mot
+  preserve_style_emphasis: true         # Préserver bold/italic/underline intentionnels
+  preserve_font_in_code: true           # Ne pas changer la police dans le code
+  
+# Mode d'application
+application:
+  ask_confirmation: true        # Demander confirmation avant d'appliquer
+  show_preview: true           # Montrer un aperçu des changements
+  create_backup: true          # Créer une copie de sauvegarde
+
